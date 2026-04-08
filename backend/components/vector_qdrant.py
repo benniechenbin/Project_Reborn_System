@@ -7,7 +7,7 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharac
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
 from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings # 确保引入了这个接口
+from langchain_core.embeddings import Embeddings
 from rank_bm25 import BM25Okapi
 from pathlib import Path
 
