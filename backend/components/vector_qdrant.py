@@ -3,14 +3,17 @@ import pickle
 import jieba
 from typing import List
 from langchain_qdrant import QdrantVectorStore
+from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings # 确保引入了这个接口
 from rank_bm25 import BM25Okapi
+from pathlib import Path
 
-import utils as ut
-from core.db_interface import BaseVectorDB
+from utils import models as ut
+from utils.logger import logger
+from backend.core.db_interface import BaseVectorDB
 from config.settings import settings
 
 # ==========================================
@@ -37,29 +40,31 @@ class QdrantDBProvider(BaseVectorDB):
     def __init__(self):
         # 初始化模型时，把 encoder 喂给你的转接头
         self.encoder = ut.load_embedding_model()
-        self.embedder = LocalEmbedder(self.encoder) 
+        self.embedder = LocalEmbedder(self.encoder)
+        self.reranker = ut.load_reranker_model()
+                
+        self.vector_db_path = Path(settings.vector_db_path)
+        self.bm25_path = Path(settings.active_obsidian_path) / "bm25_index.pkl"
+        self.client = QdrantClient(path=str(self.vector_db_path))
+        self.collection_name = "reborn_memory"
         
-        self.collection_name = "my_second_brain_kb"
-        # ... 后续是你原本的 Qdrant 初始化代码 ...
-        
-        settings.VECTOR_DB_PATH.mkdir(parents=True, exist_ok=True)
-        self.client = QdrantClient(path=str(settings.VECTOR_DB_PATH))
-
         if not self.client.collection_exists(self.collection_name):
-            test_vector = self.embedder.embed_query("测试")
+            logger.info(f"🆕 发现是首次运行，正在创建 Qdrant 集合: {self.collection_name}")
+            # 获取向量维度（bge-small-zh 通常是 512，bge-base 是 768）
+            vector_size = len(self.encoder.encode("测试内容"))
+            
             self.client.create_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=len(test_vector), distance=Distance.COSINE),
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
+            logger.info("✅ 集合创建成功！")
 
         self.vector_db = QdrantVectorStore(
             client=self.client,
             collection_name=self.collection_name,
             embedding=self.embedder,
-        )
-        
-        # === 引入 BM25 本地持久化支持 ===
-        self.bm25_path = settings.VECTOR_DB_PATH / "bm25_corpus.pkl"
+        )   
+         
         self.bm25_corpus = []
         self.bm25_model = None
         self._load_bm25()
@@ -75,24 +80,51 @@ class QdrantDBProvider(BaseVectorDB):
                 print(f"📖 成功加载 BM25 索引，包含 {len(self.bm25_corpus)} 条切片。")
 
     def add_documents(self, documents: List[Document]):
-        """存入文档时，同步更新 Qdrant 和 BM25"""
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-        splits = text_splitter.split_documents(documents)
+        """针对手写感性文档优化的‘深度切片’方案"""
         
-        if splits:
-            print(f"📦 准备存入 {len(splits)} 个切片...")
-            # 1. 存入 Qdrant
-            for i in range(0, len(splits), 4000):
-                self.vector_db.add_documents(documents=splits[i : i + 4000])
+        headers_to_split_on = [
+            ("#", "Header 1"),
+            ("##", "Header 2"),
+            ("###", "Header 3"),
+        ]
+        md_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+        
+        # 2. 第二层：按语义段落切 (针对长段落进行保护)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=800, 
+            chunk_overlap=120,
+            separators=["\n\n", "\n", "。", "！", "？", " ", ""]
+        )
+
+        all_splits = []
+        for doc in documents:
+            # 获取文件名作为上下文标签
+            source_title = Path(doc.metadata.get("source", "")).stem
             
-            # 2. 存入 BM25 并持久化
-            self.bm25_corpus.extend(splits)
+            # 执行双重切片
+            md_header_splits = md_splitter.split_text(doc.page_content)
+            
+            for header_split in md_header_splits:
+                # 注入上下文：在内容头部显式标明出处
+                header_split.page_content = f"【来自笔记：{source_title}】\n{header_split.page_content}"
+                header_split.metadata.update(doc.metadata)
+                
+                # 对大段落进行二次精细切分
+                final_splits = text_splitter.split_documents([header_split])
+                all_splits.extend(final_splits)
+
+        if all_splits:
+            print(f"🧬 深度审计完成：已将感性手稿转化为 {len(all_splits)} 个高保真记忆切片...")
+            # 存入 Qdrant
+            self.vector_db.add_documents(documents=all_splits)
+            
+            # 存入 BM25 并持久化
+            self.bm25_corpus.extend(all_splits)
             tokenized = [jieba.lcut(doc.page_content) for doc in self.bm25_corpus]
             self.bm25_model = BM25Okapi(tokenized)
             with open(self.bm25_path, "wb") as f:
                 pickle.dump(self.bm25_corpus, f)
-            print("✅ 混合检索双擎（Qdrant + BM25）写入完成！")
+            print("✅ 混合检索双擎已完成高保真写入！")
 
     def search(self, query: str, top_k: int = 5) -> List[Document]:
         """【终极形态】BM25/Qdrant 双路召回 -> Rerank 精排 -> Difflib 去重"""

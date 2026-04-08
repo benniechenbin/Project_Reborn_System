@@ -1,59 +1,64 @@
 import os
 import sys
 from datetime import datetime
-from utils.logger import logger
-from config.settings import settings
-from backend.obsidian.injector import ObsidianInjector
-from utils.scanner import AssetScanner
-from backend.database.db_manager import DBManager
 
-# 动态路径处理
+# 动态路径处理 (置顶)
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
+from utils.logger import logger
+from config.settings import settings
+from utils.scanner import AssetScanner
+from backend.database.db_manager import DBManager
+
+# 🚨 新增：引入你的核心 RAG 组件
+from backend.pipelines.document_pipeline import load_processed_knowledge
+from backend.components.vector_qdrant import QdrantDBProvider
+
 def fetch_real_metrics():
-    """从硬盘和数据库获取真实的统计数据"""
-    # 1. 实例化扫描器 (确保你的 .env 里配置了这两个路径)
-    # 假设你在 .env 里有 AUDIO_DATA_PATH
-    audio_path = os.getenv("AUDIO_DATA_PATH", os.path.join(project_root, "data/audio/raw"))
+    """从硬盘获取真实的统计数据（保持原样）"""
     scanner = AssetScanner(
         obsidian_path=settings.active_obsidian_path,
-        audio_path=audio_path
+        audio_path=settings.active_audio_path 
     )
-    
-    # 2. 执行真实扫描
     notes_count, word_count = scanner.count_notes_and_words()
     audio_duration = scanner.count_audio_duration()
     
-    metrics = {
+    return {
         'audio_duration': audio_duration,
         'notes_count': notes_count,
         'word_count': word_count,
-        'sync_time': datetime.now().strftime('%Y-%m-%d %H:%M')
+        'sync_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
-    return metrics
 
-if __name__ == "__main__":
-    logger.info("🚀 启动 [Project Reborn] 真实数据同步...")
+def execute_full_sync():
+    """✨ 终极摄入引擎：统计指标 + 向量化存储"""
+    logger.info("🚀 开始执行全量数据同步与记忆摄入...")
     
-    vault_path = settings.active_obsidian_path
-    if not vault_path:
-        logger.error("未配置 Obsidian 路径，请检查 .env")
-        sys.exit(1)
-
-    # 1. 获取真实数据
+    # 1. 扫描获取基本指标
     metrics = fetch_real_metrics()
     
-    # 2. 存入数据库历史
+    # 2. 核心大动脉接通：读取并切片 Obsidian 笔记
+    logger.info("🧠 正在提取并切片核心记忆...")
+    docs_to_embed = load_processed_knowledge()
+    
+    if docs_to_embed:
+        qdrant_db = QdrantDBProvider()
+        logger.info("🧹 正在清理旧向量库，准备执行全量重建...")
+        qdrant_db.clear()         
+
+        logger.info(f"🧬 准备将 {len(docs_to_embed)} 个记忆碎片注入...")
+        qdrant_db.add_documents(docs_to_embed)
+        logger.info("✅ 记忆库已完成全量重建！")
+    else:
+        logger.warning("⚠️ 未发现可用的记忆碎片，跳过向量化阶段。")
+        
+    # 4. 保存统计快照到 SQLite
     db = DBManager()
     db.save_sync_record(metrics)
     
-    # 3. 注入 Obsidian 仪表盘
-    injector = ObsidianInjector(vault_path=vault_path)
-    # 注意：确保 01_Project_Plan.md 放在库的根目录，或者写对相对路径
-    success = injector.update_metrics('01_Project_Plan.md', metrics)
-    
-    if success:
-        logger.info(f"✨ 同步成功！当前资产：{metrics['notes_count']}篇笔记 / {metrics['audio_duration']}分钟语音")
-    else:
-        logger.warning("同步完成但注入文档失败，请检查锚点。")
+    return metrics
+
+if __name__ == "__main__":
+    # 如果直接在终端运行脚本，则执行同步
+    execute_full_sync()

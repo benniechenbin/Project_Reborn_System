@@ -1,3 +1,18 @@
+# --- 核心框架 ---
 streamlit
-pandas
 pydantic-settings
+python-dotenv
+pandas
+
+# --- 向量大脑 ---
+qdrant-client
+langchain-qdrant
+langchain-text-splitters
+rank_bm25
+jieba
+
+# --- AI 与模型 (建议先装上，省得报错) ---
+langchain>=0.2.0
+langchain-community
+sentence-transformers
+torch

@@ -27,8 +27,16 @@ def parse_frontmatter(content: str) -> dict:
 
 def load_processed_knowledge():
     """扫描标品库并进行深度审计"""
+
+    vault_path = settings.active_obsidian_path
+    
+    if not vault_path:
+        print("❌ 错误：未配置有效的 Obsidian 路径，请检查 .env 文件")
+        return []
+
+    # 1. 初始化加载器：指向当前系统激活的路径
     loader = DirectoryLoader(
-        str(settings.MD_KNOWLEDGE_DIR), 
+        str(vault_path), 
         glob="**/*.md", 
         loader_cls=TextLoader,
         loader_kwargs={'encoding': 'utf-8'}
@@ -38,16 +46,16 @@ def load_processed_knowledge():
     final_docs = []
 
     for doc in raw_docs:
-        # ✨ 关键动作：调用审计员解析元数据
+        # 2. 调用审计员解析元数据
         meta = parse_frontmatter(doc.page_content)
         
-        # 将解析出的标签注入到 Document 的 metadata 中
+        # 3. 将解析出的标签注入到 Document 的 metadata 中
         doc.metadata.update(meta)
         
-        # 可选：如果不想让 YAML 头部污染向量库，可以把 header 部分从 page_content 中切除
+        # 4. 抹除 YAML 头部，防止干扰向量模型理解正文
         doc.page_content = re.sub(r'^---\n.*?\n---\n', '', doc.page_content, flags=re.DOTALL)
         
         final_docs.append(doc)
     
-    print(f"✅ 审计完成，已加载 {len(final_docs)} 篇带标签的知识文档。")
+    print(f"✅ 审计完成，已从 {vault_path} 加载 {len(final_docs)} 篇知识文档。")
     return final_docs
