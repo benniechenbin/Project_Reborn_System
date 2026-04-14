@@ -17,3 +17,8 @@ langchain-community
 sentence-transformers
 torch
 torchvision
+
+# --- 其他 ---
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
