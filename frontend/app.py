@@ -10,6 +10,7 @@ sys.path.append(project_root)
 
 from backend.database.db_manager import DBManager
 from scripts.run_sync import execute_full_sync
+from backend.brain.llm_router import LLMRouter
 
 # ==========================================
 # 1. 页面全局配置
@@ -92,33 +93,57 @@ def render_dashboard():
 def render_creator_studio():
     """视图 2：灵魂采访室 (用于提炼价值观)"""
     st.title("🧠 灵魂采访室")
-    st.caption("作为造物主，在这里与 AI 对话。AI 会从你的回答中提取隐性价值观，并作为‘出厂设置’落盘到项目目录。")
+    st.caption("作为造物主，在这里与 AI 对话。AI 会从你的回答中提取隐性价值观，并作为‘出厂设置’落盘。")
     st.divider()
+
+    # 初始化大模型路由器
+    if "llm_router" not in st.session_state:
+        try:
+            st.session_state.llm_router = LLMRouter()
+        except Exception as e:
+            st.error(f"大脑初始化失败: {e}")
+            return
+
+    # 🚨 设定 AI 作为“采访者”的系统提示词 (System Prompt)
+    system_prompt = {
+        "role": "system", 
+        "content": """你现在是 Project Reborn 的'灵魂采访员'。
+你的任务是通过与造物主（人类用户）对话，深度挖掘他的底层逻辑、处事原则、以及对孩子未来的期盼。
+你的提问要循序渐进，像一位深沉的老友。一次只问一个好问题，引导造物主多表达。"""
+    }
 
     # 渲染聊天记录
     for msg in st.session_state.creator_chat:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+        # 不在页面上显示系统提示词
+        if msg["role"] != "system":
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-    # 聊天输入框
+    # 聊天输入与处理逻辑
     if prompt := st.chat_input("输入你的想法或经历..."):
-        # 1. 存入用户消息
+        # 1. 存入并显示用户消息
         st.session_state.creator_chat.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        # 2. 模拟 AI 响应 (待接入大模型)
-        dummy_response = f"【系统提示：待接入大模型】我理解了。关于你提到的'{prompt}'，这体现了你怎样的一种底层价值观？"
-        st.session_state.creator_chat.append({"role": "assistant", "content": dummy_response})
+        # 2. 拼接历史记录（加上 System Prompt）发送给大模型
+        messages_to_send = [system_prompt] + st.session_state.creator_chat
+        
         with st.chat_message("assistant"):
-            st.markdown(dummy_response)
+            with st.spinner("大脑正在思考..."):
+                # 调用 llm_router 获取真实回复
+                response = st.session_state.llm_router.generate_response(messages_to_send)
+                st.markdown(response)
+        
+        # 3. 将 AI 回复存入记录
+        st.session_state.creator_chat.append({"role": "assistant", "content": response})
             
-    # 右侧面板：提炼控制台
+    # 右侧面板：提炼控制台 (暂时保留按钮)
     with st.sidebar:
         st.markdown("### 🧬 灵魂提取器")
         st.info("当一段对话足够深入后，点击下方按钮，AI 将自动总结并生成 Markdown 记忆文件。")
         if st.button("💾 提取当前对话并落盘", type="primary", use_container_width=True):
-            st.success("✅ 记忆生成指令已发送！(需对接 memory_writer 组件)")
+            st.success("✅ 按钮已准备好，下一步将对接 memory_writer 组件！")
 
 def render_avatar_sandbox():
     """视图 3：陪伴沙盒 (用于测试最终成品)"""
