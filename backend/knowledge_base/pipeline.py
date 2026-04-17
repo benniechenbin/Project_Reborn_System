@@ -1,7 +1,7 @@
 # services/file_loader.py
 import re
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from config.settings import settings
+from backend.core.settings import settings
 from langchain_core.documents import Document
 
 def parse_frontmatter(content: str) -> dict:

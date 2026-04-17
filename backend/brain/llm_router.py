@@ -1,7 +1,6 @@
 # backend/brain/llm_router.py
-import os
 from openai import OpenAI
-from backend.core.settings import settings # 复用你已经写好的环境配置加载逻辑
+from backend.core.settings import settings 
 
 class LLMRouter:
     """
@@ -9,13 +8,13 @@ class LLMRouter:
     负责管理所有的对话请求，支持无缝切换不同的底层模型。
     """
     def __init__(self):
-        # 从环境变量获取配置 (确保 .env 已经被 settings.py 加载)
-        self.api_key = os.getenv("LLM_API_KEY")
-        self.base_url = os.getenv("LLM_BASE_URL")
-        self.model_name = os.getenv("LLM_MODEL_NAME", "deepseek-chat")
+        # 统一使用 settings 读取配置，彻底抛弃 os.getenv
+        self.api_key = settings.llm_api_key
+        self.base_url = settings.llm_base_url
+        self.model_name = settings.llm_model_name
         
         if not self.api_key:
-            raise ValueError("❌ 致命错误：未在 .env 中找到 LLM_API_KEY")
+            raise ValueError("❌ 致命错误：未在 .env 中找到 LLM_API_KEY，或 settings 未能成功加载")
 
         # 初始化标准客户端
         self.client = OpenAI(

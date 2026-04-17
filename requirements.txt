@@ -1,24 +1,45 @@
-# --- 核心框架 ---
-streamlit
+# --- 核心框架与 UI ---
+fastapi
+uvicorn
+python-multipart
 pydantic-settings
 python-dotenv
-pandas
 
-# --- 向量大脑 ---
+# --- 向量数据库与检索 (Qdrant) ---
 qdrant-client
 langchain-qdrant
-langchain-text-splitters
-rank_bm25
-jieba
 
-# --- AI 与模型 (建议先装上，省得报错) ---
+# --- 大语言模型 (LLM) 接口 ---
 langchain>=0.2.0
 langchain-community
+langchain-openai
+langchain-google-genai
+google-generativeai
+openai
+
+# --- 文本处理与 Embeddings ---
+langchain-text-splitters
 sentence-transformers
 torch
-torchvision
+numpy<2.0.0
+python-docx
+pymupdf
+lxml
+mammoth
+# --- 脑图可视化 (Plotly + t-SNE) ---
+plotly
+scikit-learn
+pandas
 
-# --- 其他 ---
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-python-dotenv>=1.0.0
+# --- 高级 RAG：混合检索与精排 (BM25 + Rerank) ---
+rank_bm25
+jieba
+typing-extensions
+# --- 密码和用户管理 ---
+passlib[bcrypt]
+PyJWT
+bcrypt==3.2.2
+loguru==0.7.0   
+
+# --- 图数据库 (Neo4j) ---
+neo4j

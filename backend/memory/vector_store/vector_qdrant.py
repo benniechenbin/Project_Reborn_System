@@ -11,25 +11,24 @@ from langchain_core.embeddings import Embeddings
 from rank_bm25 import BM25Okapi
 from pathlib import Path
 
-from utils import models as ut
-from utils.logger import logger
-from backend.core.db_interface import BaseVectorDB
-from config.settings import settings
+# ✅ 修复 1：正确的函数级导入
+from backend.memory.vector_store.model_loader import load_embedding_model, load_reranker_model 
+from backend.core.logger import logger
+from backend.memory.vector_store.base import BaseVectorDB
+from backend.core.settings import settings
 
 # ==========================================
-# 1. 核心转接头：本地向量模型适配器 (必须保留)
+# 1. 核心转接头：本地向量模型适配器 
 # ==========================================
 class LocalEmbedder(Embeddings): 
     def __init__(self, encoder):
         self.encoder = encoder
         
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        # 确保返回的是标准的 List[List[float]]
         embeddings = self.encoder.encode(texts)
         return embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings
         
     def embed_query(self, text: str) -> List[float]:
-        # 确保返回的是 List[float]
         embedding = self.encoder.encode(text)
         return embedding.tolist() if hasattr(embedding, "tolist") else embedding
 
@@ -38,19 +37,15 @@ class LocalEmbedder(Embeddings):
 # ==========================================
 class QdrantDBProvider(BaseVectorDB):
     def __init__(self):
-        # 初始化模型时，把 encoder 喂给你的转接头
-        self.encoder = ut.load_embedding_model()
-        self.embedder = LocalEmbedder(self.encoder)
-        self.reranker = ut.load_reranker_model()
-                
-        self.vector_db_path = Path(settings.vector_db_path)
-        self.bm25_path = Path(settings.active_obsidian_path) / "bm25_index.pkl"
+        self.encoder = load_embedding_model()
+        self.embedder = LocalEmbedder(self.encoder)                
+        self.vector_db_path = Path(settings.vector_db_path)       
+        self.bm25_path = self.vector_db_path / "bm25_index.pkl"         
         self.client = QdrantClient(path=str(self.vector_db_path))
         self.collection_name = "reborn_memory"
         
         if not self.client.collection_exists(self.collection_name):
             logger.info(f"🆕 发现是首次运行，正在创建 Qdrant 集合: {self.collection_name}")
-            # 获取向量维度（bge-small-zh 通常是 512，bge-base 是 768）
             vector_size = len(self.encoder.encode("测试内容"))
             
             self.client.create_collection(
@@ -81,7 +76,6 @@ class QdrantDBProvider(BaseVectorDB):
 
     def add_documents(self, documents: List[Document]):
         """针对手写感性文档优化的‘深度切片’方案"""
-        
         headers_to_split_on = [
             ("#", "Header 1"),
             ("##", "Header 2"),
@@ -89,7 +83,6 @@ class QdrantDBProvider(BaseVectorDB):
         ]
         md_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
         
-        # 2. 第二层：按语义段落切 (针对长段落进行保护)
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=800, 
             chunk_overlap=120,
@@ -98,27 +91,19 @@ class QdrantDBProvider(BaseVectorDB):
 
         all_splits = []
         for doc in documents:
-            # 获取文件名作为上下文标签
             source_title = Path(doc.metadata.get("source", "")).stem
-            
-            # 执行双重切片
             md_header_splits = md_splitter.split_text(doc.page_content)
             
             for header_split in md_header_splits:
-                # 注入上下文：在内容头部显式标明出处
                 header_split.page_content = f"【来自笔记：{source_title}】\n{header_split.page_content}"
                 header_split.metadata.update(doc.metadata)
-                
-                # 对大段落进行二次精细切分
                 final_splits = text_splitter.split_documents([header_split])
                 all_splits.extend(final_splits)
 
         if all_splits:
             print(f"🧬 深度审计完成：已将感性手稿转化为 {len(all_splits)} 个高保真记忆切片...")
-            # 存入 Qdrant
             self.vector_db.add_documents(documents=all_splits)
             
-            # 存入 BM25 并持久化
             self.bm25_corpus.extend(all_splits)
             tokenized = [jieba.lcut(doc.page_content) for doc in self.bm25_corpus]
             self.bm25_model = BM25Okapi(tokenized)
@@ -129,7 +114,7 @@ class QdrantDBProvider(BaseVectorDB):
     def search(self, query: str, top_k: int = 5) -> List[Document]:
         """【终极形态】BM25/Qdrant 双路召回 -> Rerank 精排 -> Difflib 去重"""
         recall_k = top_k * 4
-        candidates_map = {} # 用 content 的 hash 作为 key 去重
+        candidates_map = {} 
 
         # 1. Qdrant 向量召回 (懂语义)
         vec_results = self.vector_db.similarity_search(query, k=recall_k)
@@ -148,18 +133,19 @@ class QdrantDBProvider(BaseVectorDB):
             return []
 
         # 3. Cross-Encoder 精排 (严格打分)
-        reranker = ut.load_reranker_model()
+        # ✅ 修复 1：直接调用函数，利用 LRU Cache 高效加载
+        reranker = load_reranker_model()
         pairs = [[query, doc.page_content] for doc in raw_docs]
         scores = reranker.predict(pairs)
         
         scored_docs = sorted(zip(raw_docs, scores), key=lambda x: x[1], reverse=True)
 
-        # 4. 智能去重逻辑 (保留你原有的精髓)
+        # 4. 智能去重逻辑
         unique_docs = []
         seen_contents = []
 
         for doc, score in scored_docs:
-            if score < -0.5: continue # 踢掉精排分数极低的伪关联
+            if score < -0.5: continue 
             
             new_text = doc.page_content.strip()
             is_duplicate = False
@@ -180,22 +166,18 @@ class QdrantDBProvider(BaseVectorDB):
 
     def clear(self):
         try:
-            # 1. 物理删除 Qdrant 集合
             if self.client.collection_exists(self.collection_name):
                 self.client.delete_collection(self.collection_name)
             
-            # 2. 物理删除 BM25 本地缓存文件
             if self.bm25_path.exists():
                 self.bm25_path.unlink() 
             
-            # 3. 🛡️ 核心修复：立刻用同一个 client 重新建表
             test_vector = self.embedder.embed_query("测试")
             self.client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=len(test_vector), distance=Distance.COSINE),
             )
             
-            # 4. 清空内存中的 BM25 变量
             self.bm25_corpus = []
             self.bm25_model = None
             

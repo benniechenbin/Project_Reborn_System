@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
-from utils.logger import logger
-from config.settings import settings
+from backend.core.logger import logger
+from backend.core.settings import settings
 
 class DBManager:
     def __init__(self):

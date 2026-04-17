@@ -6,14 +6,14 @@ from datetime import datetime
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
-from utils.logger import logger
-from config.settings import settings
-from utils.scanner import AssetScanner
-from backend.database.db_manager import DBManager
+from backend.core.logger import logger
+from backend.core.settings import settings
+from backend.knowledge_base.scanner import AssetScanner
+from backend.memory.relational.db_manager import DBManager
 
 # 🚨 新增：引入你的核心 RAG 组件
-from backend.pipelines.document_pipeline import load_processed_knowledge
-from backend.components.vector_qdrant import QdrantDBProvider
+from backend.knowledge_base.pipeline import load_processed_knowledge
+from backend.memory.vector_store.vector_qdrant import QdrantDBProvider
 
 def fetch_real_metrics():
     """从硬盘获取真实的统计数据（保持原样）"""
