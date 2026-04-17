@@ -154,4 +154,15 @@ Project_Reborn_System/
 - [ ] Phase 4: 接入 GPT-SoVITS 本地音色克隆
     
 - [ ] Phase 5: 数字人前端（面部/口型驱动）
-    
+
+### 🙏 致谢与生态整合 (Acknowledgements & Integrations)
+
+Project Reborn 的核心在于“记忆架构”与“认知中枢”。为了让数字分身具备更完整的感官表现力，我们在后续阶段（Phase 4/5）计划无缝接入以下优秀的开源项目。
+
+在此向这些伟大的开源团队致敬：
+* **[GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS):** 强大的 Few-shot 语音克隆系统。本项目计划利用其 API 作为分身的“发声器官”。
+* **[Qdrant](https://github.com/qdrant/qdrant):** 极其高效的本地向量数据库，为分身提供潜意识检索能力。
+* **[LangChain](https://github.com/langchain-ai/langchain):** 提供底层文档解析与 RAG 管道支持。
+
+> **⚠️ 声明与免责：**
+> 本项目本身不包含上述第三方项目的核心源码或预训练权重文件。所有的第三方服务均以“可插拔接口”的形式存在。请用户在部署和使用上述第三方服务（特别是语音克隆功能）时，严格遵守原项目的开源协议及当地相关法律法规，**切勿用于欺骗、伪造等非法用途**。
