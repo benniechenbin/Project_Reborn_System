@@ -1,4 +1,5 @@
 import platform
+import os
 from utils.logger import logger
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
@@ -25,13 +26,15 @@ class Settings(BaseSettings):
     ]
 
     model_config = SettingsConfigDict(
-        env_file='.env', 
+        env_file=os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
         env_file_encoding='utf-8',
         extra='ignore' 
     )
     def __init__(self, **values):
         super().__init__(**values)       
         Path(self.vector_db_path).mkdir(parents=True, exist_ok=True)
+        # 顺便加一句打印，启动时验证路径是否加载成功
+        logger.info(f"✅ 当前激活的 Obsidian 路径: {self.active_obsidian_path}")
     @property
     def active_obsidian_path(self) -> str:
         """智能返回当前操作系统的 Obsidian 路径"""
