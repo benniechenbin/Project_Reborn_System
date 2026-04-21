@@ -4,7 +4,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# 获取项目根目录（假设 utils 文件夹在根目录下）
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 def setup_logger(name="Project_Reborn"):
