@@ -10,10 +10,11 @@ project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
 
 from backend.memory.relational.db_manager import DBManager
-from scripts.run_sync import execute_full_sync
 from backend.brain.llm_router import LLMRouter
-from backend.brain.prompts import CREATOR_INTERVIEW_PROMPT, AVATAR_SANDBOX_PROMPT, MEMORY_EXTRACTION_PROMPT
+from backend.brain.rag_engine import RAGEngine
+from backend.brain.prompts import CREATOR_INTERVIEW_PROMPT, MEMORY_EXTRACTION_PROMPT
 from backend.memory.memory_writer import MemoryWriter
+from scripts.run_sync import execute_full_sync
 
 # ==========================================
 # 1. 页面全局配置
@@ -154,8 +155,9 @@ def render_avatar_sandbox():
     st.caption("模拟孩子与分身的交互。后续将接入 RAG 记忆检索，使回复更真实。")
     st.divider()
 
-    if "llm_router" not in st.session_state:
-        st.session_state.llm_router = LLMRouter()
+    if "rag_engine" not in st.session_state:
+        with st.spinner("正在唤醒数字分身的记忆..."):
+            st.session_state.rag_engine = RAGEngine()
 
     for msg in st.session_state.sandbox_chat:
         avatar = "👶" if msg["role"] == "user" else "👨‍💻"
@@ -168,10 +170,13 @@ def render_avatar_sandbox():
             st.markdown(prompt)
         
         # 暂时使用基础提示词，未来在此注入 RAG 检索结果
-        messages = [AVATAR_SANDBOX_PROMPT] + st.session_state.sandbox_chat
         with st.chat_message("assistant", avatar="👨‍💻"):
             with st.spinner("爸爸正在回忆..."):
-                response = st.session_state.llm_router.generate_response(messages)
+                # 🚀 核心变更：不再直接调用 llm_router，而是调用包装好的 rag_engine
+                response = st.session_state.rag_engine.generate_avatar_response(
+                    prompt, 
+                    st.session_state.sandbox_chat[:-1] 
+                )
                 st.markdown(response)
         st.session_state.sandbox_chat.append({"role": "assistant", "content": response})
 
