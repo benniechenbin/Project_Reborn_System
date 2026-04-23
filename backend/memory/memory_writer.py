@@ -15,7 +15,7 @@ class MemoryWriter:
         self.obsidian_root = Path(settings.active_obsidian_path)
         
         # 定义 AI 提炼记忆的专属存放目录
-        self.reflections_dir = self.obsidian_root / "02_Values" / "00_AI_Reflections"
+        self.reflections_dir = self.obsidian_root / "02_Values" / "01_AI_Reflections"
         
         # 虽然是 Path B，但孩子对话记录建议保留在项目本地，不建议混入个人知识库
         self.local_child_logs = Path(__file__).resolve().parent.parent.parent / "data" / "memories" / "child_dialogues"
@@ -48,7 +48,7 @@ tags:{tags_str}
 
     def save_core_value(self, topic: str, content: str, tags: list = None) -> bool:
         """
-        将提取的价值观落盘到 Obsidian：02_Values/00_AI_Reflections/
+        将提取的价值观落盘到 Obsidian：02_Values/01_AI_Reflections/
         """
         # 预处理文件名
         date_prefix = datetime.now().strftime("%Y%m%d_%H%M")

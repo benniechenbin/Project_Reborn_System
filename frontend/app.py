@@ -17,7 +17,8 @@ from backend.brain.prompts import (
     CREATOR_INTERVIEW_PROMPT, 
     MEMORY_EXTRACTION_PROMPT,
     STORY_INTERVIEW_PROMPT,   
-    STORY_EXTRACTION_PROMPT   
+    STORY_EXTRACTION_PROMPT,
+    IDENTITY_CONSOLIDATION_PROMPT
 )
 
 # ==========================================
@@ -158,6 +159,7 @@ def render_creator_studio():
             if len(st.session_state.creator_chat) < 3:
                 st.warning("⚠️ 内容太少，再多聊几句吧。")
             else:
+                # 必须把所有逻辑都包在这个 else 里面！
                 with st.spinner("AI 正在整理笔记..."):
                     # 选择提炼提示词
                     extract_prompt = (
@@ -182,22 +184,20 @@ def render_creator_studio():
                         st.info(f"预览内容：\n{insight[:150]}...")
                     else:
                         st.error("❌ 写入失败，请检查后端日志。")
-            with st.spinner("AI 正在提炼记忆并更新身份核..."):
-                # --- A. 生成并保存常规记忆笔记 (原有逻辑) ---
-                # ... 生成 insight 并调用 save_core_value 或 save_story ...
-                
-                # --- B. 同步更新身份核 (新逻辑) ---
-                old_identity = st.session_state.memory_writer.read_master_identity()
-                consolidation_msgs = [
-                    IDENTITY_CONSOLIDATION_PROMPT,
-                    {"role": "user", "content": f"旧身份核：\n{old_identity}\n\n新记忆碎片：\n{insight}"}
-                ]
-                # 调用 LLM 进行合并
-                updated_identity = st.session_state.llm_router.generate_response(consolidation_msgs)
-                
-                # 覆盖写入
-                if st.session_state.memory_writer.save_master_identity(updated_identity):
-                    st.toast("✅ 身份核(Master Identity)已同步进化！", icon="🧬")
+                        
+                # 👈 注意这里的缩进！它应该紧接着上面的保存逻辑，但仍然在 else 分支内
+                with st.spinner("AI 正在提炼记忆并更新身份核..."):
+                    old_identity = st.session_state.memory_writer.read_master_identity()
+                    consolidation_msgs = [
+                        IDENTITY_CONSOLIDATION_PROMPT,
+                        {"role": "user", "content": f"旧身份核：\n{old_identity}\n\n新记忆碎片：\n{insight}"}
+                    ]
+                    # 调用 LLM 进行合并
+                    updated_identity = st.session_state.llm_router.generate_response(consolidation_msgs)
+                    
+                    # 覆盖写入
+                    if st.session_state.memory_writer.save_master_identity(updated_identity):
+                        st.toast("✅ 身份核(Master Identity)已同步进化！", icon="🧬")
 def render_avatar_sandbox():
     """视图 3：陪伴沙盒 (测试分身语气)"""
     st.title("👶 陪伴沙盒 (Alpha)")
