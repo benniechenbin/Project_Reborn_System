@@ -22,7 +22,7 @@ class MemoryWriter:
         
         # 确保目录存在
         self._ensure_dirs()
-
+       
     def _ensure_dirs(self):
         try:
             self.reflections_dir.mkdir(parents=True, exist_ok=True)
@@ -67,4 +67,50 @@ tags:{tags_str}
             return True
         except Exception as e:
             logger.error(f"❌ 写入 Obsidian 失败: {e}")
+            return False
+
+    def save_story(self, title: str, content: str, tags: list = None) -> bool:
+        """
+        将提炼的故事落盘到 Obsidian：03_Stories/
+        """
+        # 1. 确定目标路径
+        target_dir = self.obsidian_root / "03_Stories"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 2. 生成文件名
+        date_prefix = datetime.now().strftime("%Y%m%d")
+        safe_title = title.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        filename = f"Story_{date_prefix}_{safe_title}.md"
+        filepath = target_dir / filename
+
+        # 3. 组装 Markdown 内容
+        md_content = self._generate_frontmatter(title, "story", tags or ["家庭故事", "回忆录"])
+        md_content += f"\n{content}\n"
+        md_content += f"\n---\n> [!quote] 爸爸的叮嘱\n> 这个故事记录于 {datetime.now().strftime('%Y-%m-%d')}。希望你长大后读到它，能感受到那天的温度。"
+
+        try:
+            filepath.write_text(md_content, encoding='utf-8')
+            logger.info(f"📖 故事已存入 Obsidian: {filepath}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ 写入故事失败: {e}")
+            return False
+    
+    def read_master_identity(self) -> str:
+        """读取当前的身份核文件"""
+        path = self.obsidian_root / "02_Values" / "00_Master_Identity.md"
+        if path.exists():
+            return path.read_text(encoding='utf-8')
+        return "（目前身份核文件为空，请开始采访以建立初始画像）"
+
+    def save_master_identity(self, content: str) -> bool:
+        """覆盖式写入身份核文件"""
+        target_dir = self.obsidian_root / "02_Values"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        path = target_dir / "00_Master_Identity.md"
+        try:
+            path.write_text(content, encoding='utf-8')
+            return True
+        except Exception as e:
+            logger.error(f"更新身份核失败: {e}")
             return False

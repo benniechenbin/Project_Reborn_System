@@ -1,4 +1,3 @@
-# frontend/app.py
 import streamlit as st
 import pandas as pd
 import os
@@ -12,9 +11,14 @@ sys.path.append(project_root)
 from backend.memory.relational.db_manager import DBManager
 from backend.brain.llm_router import LLMRouter
 from backend.brain.rag_engine import RAGEngine
-from backend.brain.prompts import CREATOR_INTERVIEW_PROMPT, MEMORY_EXTRACTION_PROMPT
 from backend.memory.memory_writer import MemoryWriter
 from scripts.run_sync import execute_full_sync
+from backend.brain.prompts import (
+    CREATOR_INTERVIEW_PROMPT, 
+    MEMORY_EXTRACTION_PROMPT,
+    STORY_INTERVIEW_PROMPT,   
+    STORY_EXTRACTION_PROMPT   
+)
 
 # ==========================================
 # 1. 页面全局配置
@@ -88,67 +92,112 @@ def render_dashboard():
             st.area_chart(chart_data['notes_count'], color="#ff7f0e")
 
 def render_creator_studio():
-    """视图 2：灵魂采访室 (提炼价值观并落盘)"""
-    st.title("🧠 灵魂采访室")
-    st.caption("在此通过深度对话提炼你的底层逻辑，并将其转化为分身的‘物理记忆’。")
-    st.divider()
-
-    # 初始化大脑和记忆写入器
+    """视图 2：灵魂采访室 (双模式切换)"""
+    
     if "llm_router" not in st.session_state:
         st.session_state.llm_router = LLMRouter()
-    if "memory_writer" not in st.session_state:
+        
+    if "memory_writer" not in st.session_state:       
         st.session_state.memory_writer = MemoryWriter()
+    # 1. 在侧边栏增加模式选择器
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("### 🎯 当前采访目标")
+        interview_mode = st.radio(
+            "你想聊什么内容？",
+            ["💡 提炼价值观 (ROM)", "📖 记录往事 (RAM)"],
+            help="模式切换后，AI 会调整提问风格。提炼时会根据模式存入不同文件夹。"
+        )
+        
+        # 模式切换提醒：如果切换模式，建议重置聊天
+        if st.button("🆕 开启新话题", help="清空当前对话记录"):
+            st.session_state.creator_chat = [{"role": "assistant", "content": "好的，我已经准备好了。我们开始吧！"}]
+            st.rerun()
+    # 2. 动态确定当前使用的 System Prompt
+    current_system_prompt = (
+        CREATOR_INTERVIEW_PROMPT if interview_mode == "💡 提炼价值观 (ROM)" 
+        else STORY_INTERVIEW_PROMPT
+    )
 
-    # 渲染聊天记录
+    st.title("🧠 灵魂采访室")
+    st.caption(f"当前模式：{interview_mode}")
+    st.divider()
+
+    # 3. 渲染聊天记录 (保持原有逻辑)
     for msg in st.session_state.creator_chat:
         if msg["role"] != "system":
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-    # 聊天输入
-    if prompt := st.chat_input("分享一个让你印象深刻的处事经历..."):
+    # 4. 聊天输入处理
+    if prompt := st.chat_input("分享你的想法或故事细节..."):
         st.session_state.creator_chat.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-        
-        # 拼接上下文发送给大模型
-        messages = [CREATOR_INTERVIEW_PROMPT] + st.session_state.creator_chat
+        master_identity = st.session_state.memory_writer.read_master_identity()
+
+        dynamic_system_prompt = {
+            "role": "system",
+            "content": f"{current_system_prompt['content']}\n\n【已知全局背景信息（请务必牢记）】：\n{master_identity}"
+        }
+        # 拼接上下文，使用当前模式的 System Prompt
+        messages = [dynamic_system_prompt] + [m for m in st.session_state.creator_chat if m["role"] != "system"]
         with st.chat_message("assistant"):
-            with st.spinner("正在倾听并思考..."):
+            with st.spinner("正在倾听..."):
                 response = st.session_state.llm_router.generate_response(messages)
                 st.markdown(response)
         st.session_state.creator_chat.append({"role": "assistant", "content": response})
-            
-    # 侧边栏辅助功能：提炼并保存记忆
+
+    # 5. 侧边栏：提炼与保存控制台
     with st.sidebar:
-        st.markdown("### 🧬 灵魂提取控制台")
-        memory_title = st.text_input("给这段记忆起个标题", placeholder="例如：关于诚实的价值观")
+        st.markdown("---")
+        st.markdown("### 🧬 记忆提炼")
+        memory_title = st.text_input("记忆标题", placeholder="例如：丽水的水牛")
         
-        if st.button("💾 提取对话精华并存入硬盘", type="primary", use_container_width=True):
+        if st.button("💾 提取并同步至 Obsidian", type="primary", use_container_width=True):
             if len(st.session_state.creator_chat) < 3:
-                st.warning("⚠️ 对话内容太少，建议多聊几句再提炼。")
+                st.warning("⚠️ 内容太少，再多聊几句吧。")
             else:
-                with st.spinner("AI 正在深度复盘并生成总结..."):
-                    # 1. 将对话历史转化为字符串
-                    history_str = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.creator_chat if m['role'] != 'system'])
+                with st.spinner("AI 正在整理笔记..."):
+                    # 选择提炼提示词
+                    extract_prompt = (
+                        MEMORY_EXTRACTION_PROMPT if interview_mode == "💡 提炼价值观 (ROM)" 
+                        else STORY_EXTRACTION_PROMPT
+                    )
                     
-                    # 2. 调用专门的“提炼 Prompt”
-                    extract_msgs = [
-                        MEMORY_EXTRACTION_PROMPT, 
-                        {"role": "user", "content": f"请提炼以下对话的精华内容：\n{history_str}"}
-                    ]
+                    history_str = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.creator_chat if m['role'] != 'system'])
+                    extract_msgs = [extract_prompt, {"role": "user", "content": f"请处理以下对话内容：\n{history_str}"}]
                     insight = st.session_state.llm_router.generate_response(extract_msgs)
                     
-                    # 3. 调用 MemoryWriter 落盘
-                    final_title = memory_title if memory_title else f"碎片_{pd.Timestamp.now().strftime('%m%d_%H%M')}"
-                    success = st.session_state.memory_writer.save_core_value(topic=final_title, content=insight)
+                    final_title = memory_title if memory_title else f"记忆碎片_{pd.Timestamp.now().strftime('%m%d_%H%M')}"
+                    
+                    # 💡 根据模式调用不同的保存方法
+                    if interview_mode == "💡 提炼价值观 (ROM)":
+                        success = st.session_state.memory_writer.save_core_value(final_title, insight)
+                    else:
+                        success = st.session_state.memory_writer.save_story(final_title, insight)
                     
                     if success:
-                        st.success(f"✅ 记忆已成功落盘！\n文件位置：data/memories/core_values/")
-                        st.info(f"提炼结果：\n{insight[:150]}...")
+                        st.success(f"✅ 已成功写入 Obsidian 对应目录！")
+                        st.info(f"预览内容：\n{insight[:150]}...")
                     else:
-                        st.error("❌ 记忆落盘失败，请检查 backend/logs 记录。")
-
+                        st.error("❌ 写入失败，请检查后端日志。")
+            with st.spinner("AI 正在提炼记忆并更新身份核..."):
+                # --- A. 生成并保存常规记忆笔记 (原有逻辑) ---
+                # ... 生成 insight 并调用 save_core_value 或 save_story ...
+                
+                # --- B. 同步更新身份核 (新逻辑) ---
+                old_identity = st.session_state.memory_writer.read_master_identity()
+                consolidation_msgs = [
+                    IDENTITY_CONSOLIDATION_PROMPT,
+                    {"role": "user", "content": f"旧身份核：\n{old_identity}\n\n新记忆碎片：\n{insight}"}
+                ]
+                # 调用 LLM 进行合并
+                updated_identity = st.session_state.llm_router.generate_response(consolidation_msgs)
+                
+                # 覆盖写入
+                if st.session_state.memory_writer.save_master_identity(updated_identity):
+                    st.toast("✅ 身份核(Master Identity)已同步进化！", icon="🧬")
 def render_avatar_sandbox():
     """视图 3：陪伴沙盒 (测试分身语气)"""
     st.title("👶 陪伴沙盒 (Alpha)")
@@ -156,7 +205,7 @@ def render_avatar_sandbox():
     st.divider()
 
     if "rag_engine" not in st.session_state:
-        with st.spinner("正在唤醒数字分身的记忆..."):
+        with st.spinner("正在加载层级记忆模型 (ROM/RAM)..."):
             st.session_state.rag_engine = RAGEngine()
 
     for msg in st.session_state.sandbox_chat:
@@ -171,8 +220,7 @@ def render_avatar_sandbox():
         
         # 暂时使用基础提示词，未来在此注入 RAG 检索结果
         with st.chat_message("assistant", avatar="👨‍💻"):
-            with st.spinner("爸爸正在回忆..."):
-                # 🚀 核心变更：不再直接调用 llm_router，而是调用包装好的 rag_engine
+            with st.spinner("爸爸正在回忆..."):               
                 response = st.session_state.rag_engine.generate_avatar_response(
                     prompt, 
                     st.session_state.sandbox_chat[:-1] 
