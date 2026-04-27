@@ -16,6 +16,8 @@ from backend.brain.llm_router import LLMRouter
 from backend.brain.rag_engine import RAGEngine
 from backend.memory.memory_writer import MemoryWriter
 from scripts.run_sync import execute_full_sync
+from backend.services.interview_service import InterviewService
+
 from backend.brain.prompts import (
     CREATOR_INTERVIEW_PROMPT, 
     MEMORY_EXTRACTION_PROMPT,
@@ -23,7 +25,6 @@ from backend.brain.prompts import (
     STORY_EXTRACTION_PROMPT,
     IDENTITY_CONSOLIDATION_PROMPT
 )
-
 # ==========================================
 # 1. 页面全局配置
 # ==========================================
@@ -35,10 +36,26 @@ st.set_page_config(
 )
 
 # 初始化 Session State，用于持久化聊天记录
+# A. 初始化底层基础设施
+if "llm_router" not in st.session_state:
+    st.session_state.llm_router = LLMRouter()
+    
+if "memory_writer" not in st.session_state:       
+    st.session_state.memory_writer = MemoryWriter()
+
+# B. 初始化聊天记录状态
 if "creator_chat" not in st.session_state:
     st.session_state.creator_chat = [{"role": "assistant", "content": "你好，造物主。我是你的灵魂采访员。今天你想聊聊你在工作上的处事原则，还是对孩子的教育理念？"}]
+    
 if "sandbox_chat" not in st.session_state:
     st.session_state.sandbox_chat = [{"role": "assistant", "content": "哈喽呀！我是爸爸的数字分身，你今天在幼儿园开心吗？"}]
+
+# C. 初始化业务服务层 (现在安全了，因为底层设施已经准备好了)
+if "interview_service" not in st.session_state:
+    st.session_state.interview_service = InterviewService(
+        st.session_state.llm_router, 
+        st.session_state.memory_writer
+    )
 
 # ==========================================
 # 2. 数据获取逻辑
@@ -97,12 +114,6 @@ def render_dashboard():
 
 def render_creator_studio():
     """视图 2：灵魂采访室 (双模式切换)"""
-    
-    if "llm_router" not in st.session_state:
-        st.session_state.llm_router = LLMRouter()
-        
-    if "memory_writer" not in st.session_state:       
-        st.session_state.memory_writer = MemoryWriter()
     # 1. 在侧边栏增加模式选择器
     with st.sidebar:
         st.markdown("---")
@@ -162,31 +173,23 @@ def render_creator_studio():
             if len(st.session_state.creator_chat) < 3:
                 st.warning("⚠️ 内容太少，再多聊几句吧。")
             else:
-                # 必须把所有逻辑都包在这个 else 里面！
-                with st.spinner("AI 正在整理笔记..."):
-                    # 选择提炼提示词
-                    extract_prompt = (
-                        MEMORY_EXTRACTION_PROMPT if interview_mode == "💡 提炼价值观 (ROM)" 
-                        else STORY_EXTRACTION_PROMPT
+                with st.spinner("AI 正在深度提炼并同步进化身份核..."):
+                    # 🚀 调用封装好的业务逻辑
+                    success, result = st.session_state.interview_service.process_and_save_interview(
+                        chat_history=st.session_state.creator_chat,
+                        interview_mode=interview_mode,
+                        custom_title=memory_title
                     )
                     
-                    history_str = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.creator_chat if m['role'] != 'system'])
-                    extract_msgs = [extract_prompt, {"role": "user", "content": f"请处理以下对话内容：\n{history_str}"}]
-                    insight = st.session_state.llm_router.generate_response(extract_msgs)
-                    
-                    final_title = memory_title if memory_title else f"记忆碎片_{pd.Timestamp.now().strftime('%m%d_%H%M')}"
-                    
-                    # 💡 根据模式调用不同的保存方法
-                    if interview_mode == "💡 提炼价值观 (ROM)":
-                        success = st.session_state.memory_writer.save_core_value(final_title, insight)
-                    else:
-                        success = st.session_state.memory_writer.save_story(final_title, insight)
-                    
                     if success:
-                        st.success(f"✅ 已成功写入 Obsidian 对应目录！")
-                        st.info(f"预览内容：\n{insight[:150]}...")
+                        st.success("✅ 记忆已存入 Obsidian，且身份核已同步进化！")
+                        st.toast("🧬 身份核已完成一次增量演进", icon="✅")
+                        with st.expander("查看本次提炼的笔记"):
+                            st.markdown(result)
                     else:
-                        st.error("❌ 写入失败，请检查后端日志。")
+                        # 在这里接住底层抛出的异常，进行“安抚用户”
+                        st.error(f"❌ 同步失败：{result}")
+                        st.info("建议检查网络连接或后端日志。")
                         
                 # 👈 注意这里的缩进！它应该紧接着上面的保存逻辑，但仍然在 else 分支内
                 with st.spinner("AI 正在提炼记忆并更新身份核..."):

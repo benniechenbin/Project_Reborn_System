@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
 class Settings(BaseSettings):
     """全局系统配置中心 (纯净版：无副作用，无外部依赖)"""
     
@@ -31,12 +33,10 @@ class Settings(BaseSettings):
     ]
 
     model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
+        env_file=str(PROJECT_ROOT / ".env"),  
         env_file_encoding='utf-8',
         extra='ignore' 
     )
-
-    # 🚨 删除了 __init__ 方法中的 mkdir 和 logger.info
 
     @property
     def active_obsidian_path(self) -> str:
@@ -47,7 +47,6 @@ class Settings(BaseSettings):
         elif os_name == "Windows":
             return self.obsidian_vault_path_win
         else:
-            # 🚨 解耦点：遇到严重错误直接抛出系统级异常，让最上层的捕获机制或启动脚本去报错
             raise RuntimeError(f"不受支持的操作系统: {os_name}。Project Reborn 目前仅支持 Mac/Windows。")
 
     @property

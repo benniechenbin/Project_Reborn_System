@@ -1,6 +1,8 @@
-# backend/brain/llm_router.py
+import time
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from backend.observability.logger import logger
+from backend.config.settings import settings
 from openai import OpenAI
-from backend.config.settings import settings 
 
 class LLMRouter:
     """
@@ -21,13 +23,18 @@ class LLMRouter:
             api_key=self.api_key,
             base_url=self.base_url
         )
-
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),        
+        reraise=True
+    )
     def generate_response(self, messages: list, temperature: float = 0.7) -> str:
         """
         发送多轮对话并获取回复
         :param messages: 标准的消息列表 [{"role": "system", "content": "..."}, ...]
         """
         try:
+            logger.debug(f"正在向大模型发送请求，包含 {len(messages)} 条上下文...")
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
@@ -36,7 +43,8 @@ class LLMRouter:
             )
             return response.choices[0].message.content
         except Exception as e:
-            return f"❌ 大脑响应异常，请检查网络或 API 配置: {e}"
+            logger.warning(f"⚠️ 大模型 API 调用异常，准备重试: {e}")
+            raise e
 
 # 测试代码
 if __name__ == "__main__":

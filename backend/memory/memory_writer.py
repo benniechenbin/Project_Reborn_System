@@ -97,12 +97,24 @@ class MemoryWriter:
     def save_master_identity(self, content: str) -> bool:
         """覆盖式写入身份核文件"""
         target_dir = self.obsidian_root / "02_Values"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        path = target_dir / "00_Master_Identity.md"
-        try:
-            # 身份核可以直接写入，因为它是一个特殊的聚合文件
-            path.write_text(content, encoding='utf-8')
+        target_dir.mkdir(parents=True, exist_ok=True)        
+        
+        target_path = target_dir / "00_Master_Identity.md"
+        temp_path = target_dir / "00_Master_Identity.md.tmp"
+        
+        try:            
+            temp_path.write_text(content, encoding='utf-8')            
+           
+            os.replace(temp_path, target_path)
+            
+            logger.info("✅ 身份核 (Master Identity) 已通过原子操作安全更新！")
             return True
+            
         except Exception as e:
-            logger.error(f"❌ 更新身份核失败: {e}")
+            logger.error(f"❌ 更新身份核失败: {e}")           
+            if temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
             return False
