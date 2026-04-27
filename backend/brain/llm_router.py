@@ -1,6 +1,6 @@
 # backend/brain/llm_router.py
 from openai import OpenAI
-from backend.core.settings import settings 
+from backend.config.settings import settings 
 
 class LLMRouter:
     """

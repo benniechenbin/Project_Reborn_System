@@ -1,107 +1,99 @@
-# backend/memory/memory_writer.py
+import re
 import os
 from datetime import datetime
 from pathlib import Path
-from backend.core.logger import logger
-from backend.core.settings import settings  # 引入 settings 获取 Obsidian 真实路径
+from backend.observability.logger import logger
+from backend.config.settings import settings
 
 class MemoryWriter:
-    """
-    数字分身物理记忆写入器 (路径 B：直接写入 Obsidian)
-    负责将灵魂采访提炼的价值观转化为 Obsidian 笔记，实现数据的一体化。
-    """
     def __init__(self):
-        # 🚨 路径 B 核心变更：目标指向 Obsidian 仓库
-        self.obsidian_root = Path(settings.active_obsidian_path)
-        
-        # 定义 AI 提炼记忆的专属存放目录
-        self.reflections_dir = self.obsidian_root / "02_Values" / "01_AI_Reflections"
-        
-        # 虽然是 Path B，但孩子对话记录建议保留在项目本地，不建议混入个人知识库
-        self.local_child_logs = Path(__file__).resolve().parent.parent.parent / "data" / "memories" / "child_dialogues"
-        
-        # 确保目录存在
-        self._ensure_dirs()
-       
-    def _ensure_dirs(self):
+        # 💡 使用纯净版 settings 提供的动态路径，再配合相对路径做 Fallback
         try:
-            self.reflections_dir.mkdir(parents=True, exist_ok=True)
-            self.local_child_logs.mkdir(parents=True, exist_ok=True)
-            logger.info(f"✅ 记忆写入通道已就绪: {self.reflections_dir}")
+            target_path = settings.active_obsidian_path
+            if not target_path:
+                target_path = "data/memories" # 如果未配置，降级为项目内目录
         except Exception as e:
-            logger.error(f"❌ 无法创建记忆目录: {e}")
-
-    def _generate_frontmatter(self, title: str, memory_type: str, tags: list) -> str:
-        """生成符合 Obsidian 习惯的 YAML 前言"""
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        tags_str = "\n  - ".join([""] + (tags or []))
+            logger.warning(f"无法获取系统 Obsidian 路径，使用默认路径: {e}")
+            target_path = "data/memories"
+            
+        self.obsidian_root = Path(target_path)
+        self.obsidian_root.mkdir(parents=True, exist_ok=True)
         
-        return f"""---
-title: "{title}"
-date: {now}
-type: {memory_type}
-origin: "Soul_Interview"
-tags:{tags_str}
----
-
-"""
-
-    def save_core_value(self, topic: str, content: str, tags: list = None) -> bool:
+    def _sanitize_filename(self, filename: str) -> str:
         """
-        将提取的价值观落盘到 Obsidian：02_Values/01_AI_Reflections/
+        核心升级：文件名净化器
+        防范大模型在生成的标题中带有冒号、斜杠等非法路径字符，导致落盘崩溃。
         """
-        # 预处理文件名
-        date_prefix = datetime.now().strftime("%Y%m%d_%H%M")
-        safe_topic = topic.replace(" ", "_").replace("/", "_").replace("\\", "_")
-        filename = f"{date_prefix}_{safe_topic}.md"
-        filepath = self.reflections_dir / filename
+        clean_name = re.sub(r'[\\/*?:"<>|]', " - ", filename)
+        return clean_name.strip()
 
-        # 组装 Markdown 内容
-        md_content = self._generate_frontmatter(topic, "core_value", tags or ["AI提炼", "价值观"])
-        md_content += f"## 🧩 灵魂碎片提炼\n\n{content}\n\n"
-        md_content += f"---\n> [!info] 提示\n> 此文档由 Project Reborn 灵魂采访室自动生成。你可以在 Obsidian 中随时进行人工修正，修正后的内容将在下次同步时生效。"
+    def _ensure_yaml_frontmatter(self, content: str, default_category: str) -> str:
+        """
+        核心升级：YAML 兜底引擎
+        虽然我们会通过 Prompt 强制 LLM 输出高级 YAML 标签，但如果 LLM 发生截断或幻觉，
+        此方法会强行补全基础 Metadata，确保 Obsidian 解析不报错。
+        """
+        content = content.strip()
+        if not content.startswith("---"):
+            now = datetime.now().strftime("%Y-%m-%d %H:%M")
+            fallback_yaml = (
+                f"---\n"
+                f"date: {now}\n"
+                f"category: {default_category}\n"
+                f"tags: [AI_Fallback]\n"
+                f"---\n\n"
+            )
+            return fallback_yaml + content
+        return content
 
+    def save_core_value(self, title: str, content: str) -> bool:
+        """保存价值观/认知类记忆 (ROM) 到 00_AI_Reflections"""
+        target_dir = self.obsidian_root / "02_Values" / "00_AI_Reflections"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        
+        safe_title = self._sanitize_filename(title)
+        if not safe_title.endswith(".md"):
+            safe_title += ".md"
+            
+        file_path = target_dir / safe_title
+        
         try:
-            filepath.write_text(md_content, encoding='utf-8')
-            logger.info(f"🧠 记忆已注入 Obsidian: {filepath}")
+            # 注入/校验 YAML 头
+            final_content = self._ensure_yaml_frontmatter(content, "02_Values")
+            file_path.write_text(final_content, encoding='utf-8')
+            logger.info(f"✅ 成功保存价值观记忆: {file_path}")
             return True
         except Exception as e:
-            logger.error(f"❌ 写入 Obsidian 失败: {e}")
+            logger.error(f"❌ 保存价值观记忆失败: {e}")
             return False
 
-    def save_story(self, title: str, content: str, tags: list = None) -> bool:
-        """
-        将提炼的故事落盘到 Obsidian：03_Stories/
-        """
-        # 1. 确定目标路径
+    def save_story(self, title: str, content: str) -> bool:
+        """保存往事/经历类记忆 (RAM) 到 03_Stories"""
         target_dir = self.obsidian_root / "03_Stories"
         target_dir.mkdir(parents=True, exist_ok=True)
         
-        # 2. 生成文件名
-        date_prefix = datetime.now().strftime("%Y%m%d")
-        safe_title = title.replace(" ", "_").replace("/", "_").replace("\\", "_")
-        filename = f"Story_{date_prefix}_{safe_title}.md"
-        filepath = target_dir / filename
-
-        # 3. 组装 Markdown 内容
-        md_content = self._generate_frontmatter(title, "story", tags or ["家庭故事", "回忆录"])
-        md_content += f"\n{content}\n"
-        md_content += f"\n---\n> [!quote] 爸爸的叮嘱\n> 这个故事记录于 {datetime.now().strftime('%Y-%m-%d')}。希望你长大后读到它，能感受到那天的温度。"
-
+        safe_title = self._sanitize_filename(title)
+        if not safe_title.endswith(".md"):
+            safe_title += ".md"
+            
+        file_path = target_dir / safe_title
+        
         try:
-            filepath.write_text(md_content, encoding='utf-8')
-            logger.info(f"📖 故事已存入 Obsidian: {filepath}")
+            # 注入/校验 YAML 头
+            final_content = self._ensure_yaml_frontmatter(content, "03_Stories")
+            file_path.write_text(final_content, encoding='utf-8')
+            logger.info(f"✅ 成功保存故事记忆: {file_path}")
             return True
         except Exception as e:
-            logger.error(f"❌ 写入故事失败: {e}")
+            logger.error(f"❌ 保存故事记忆失败: {e}")
             return False
-    
+
     def read_master_identity(self) -> str:
         """读取当前的身份核文件"""
         path = self.obsidian_root / "02_Values" / "00_Master_Identity.md"
         if path.exists():
             return path.read_text(encoding='utf-8')
-        return "（目前身份核文件为空，请开始采访以建立初始画像）"
+        return "（目前身份档案为空。造物主尚未提供核心身份信息。）"
 
     def save_master_identity(self, content: str) -> bool:
         """覆盖式写入身份核文件"""
@@ -109,8 +101,9 @@ tags:{tags_str}
         target_dir.mkdir(parents=True, exist_ok=True)
         path = target_dir / "00_Master_Identity.md"
         try:
+            # 身份核可以直接写入，因为它是一个特殊的聚合文件
             path.write_text(content, encoding='utf-8')
             return True
         except Exception as e:
-            logger.error(f"更新身份核失败: {e}")
+            logger.error(f"❌ 更新身份核失败: {e}")
             return False

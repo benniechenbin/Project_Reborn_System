@@ -5,9 +5,8 @@ from datetime import datetime
 from backend.brain.llm_router import LLMRouter
 from backend.brain.prompts import AVATAR_RAG_FRAMEWORK
 from backend.memory.vector_store.vector_qdrant import QdrantDBProvider
-from backend.core.settings import settings
-
-logger = logging.getLogger(__name__)
+from backend.config.settings import settings
+from backend.observability.logger import logger
 
 class RAGEngine:
     def __init__(self):
