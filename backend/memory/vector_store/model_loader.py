@@ -3,7 +3,7 @@ import os
 import functools
 from pathlib import Path
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from backend.core.logger import logger
+from backend.observability.logger import logger
 
 # 获取项目根目录，确保绝对路径的稳固
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent

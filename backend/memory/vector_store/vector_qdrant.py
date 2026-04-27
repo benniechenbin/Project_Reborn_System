@@ -13,9 +13,9 @@ from pathlib import Path
 
 # ✅ 修复 1：正确的函数级导入
 from backend.memory.vector_store.model_loader import load_embedding_model, load_reranker_model 
-from backend.core.logger import logger
+from backend.observability.logger import logger
 from backend.memory.vector_store.base import BaseVectorDB
-from backend.core.settings import settings
+from backend.config.settings import settings
 
 # ==========================================
 # 1. 核心转接头：本地向量模型适配器 

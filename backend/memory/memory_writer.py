@@ -7,11 +7,10 @@ from backend.config.settings import settings
 
 class MemoryWriter:
     def __init__(self):
-        # 💡 使用纯净版 settings 提供的动态路径，再配合相对路径做 Fallback
         try:
             target_path = settings.active_obsidian_path
             if not target_path:
-                target_path = "data/memories" # 如果未配置，降级为项目内目录
+                target_path = "data/memories" 
         except Exception as e:
             logger.warning(f"无法获取系统 Obsidian 路径，使用默认路径: {e}")
             target_path = "data/memories"

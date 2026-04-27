@@ -6,6 +6,9 @@ from datetime import datetime
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
+from backend.core.bootstrap import init_system
+init_system()
+
 from backend.observability.logger import logger
 from backend.config.settings import settings
 from backend.knowledge_base.scanner import AssetScanner

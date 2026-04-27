@@ -8,6 +8,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
 
+from backend.core.bootstrap import init_system
+init_system()
+
 from backend.memory.relational.db_manager import DBManager
 from backend.brain.llm_router import LLMRouter
 from backend.brain.rag_engine import RAGEngine
