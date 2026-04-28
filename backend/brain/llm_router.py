@@ -50,4 +50,4 @@ class LLMRouter:
 if __name__ == "__main__":
     router = LLMRouter()
     test_msgs = [{"role": "user", "content": "你好，测试一下连接。"}]
-    print(router.generate_response(test_msgs))
+    logger.info(router.generate_response(test_msgs))

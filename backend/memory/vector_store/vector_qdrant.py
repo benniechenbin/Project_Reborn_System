@@ -72,7 +72,7 @@ class QdrantDBProvider(BaseVectorDB):
             if self.bm25_corpus:
                 tokenized = [jieba.lcut(doc.page_content) for doc in self.bm25_corpus]
                 self.bm25_model = BM25Okapi(tokenized)
-                print(f"📖 成功加载 BM25 索引，包含 {len(self.bm25_corpus)} 条切片。")
+                logger.info(f"📖 成功加载 BM25 索引，包含 {len(self.bm25_corpus)} 条切片。")
 
     def add_documents(self, documents: List[Document]):
         """针对手写感性文档优化的‘深度切片’方案"""
@@ -101,7 +101,7 @@ class QdrantDBProvider(BaseVectorDB):
                 all_splits.extend(final_splits)
 
         if all_splits:
-            print(f"🧬 深度审计完成：已将感性手稿转化为 {len(all_splits)} 个高保真记忆切片...")
+            logger.info(f"🧬 深度审计完成：已将感性手稿转化为 {len(all_splits)} 个高保真记忆切片...")
             self.vector_db.add_documents(documents=all_splits)
             
             self.bm25_corpus.extend(all_splits)
@@ -109,7 +109,7 @@ class QdrantDBProvider(BaseVectorDB):
             self.bm25_model = BM25Okapi(tokenized)
             with open(self.bm25_path, "wb") as f:
                 pickle.dump(self.bm25_corpus, f)
-            print("✅ 混合检索双擎已完成高保真写入！")
+            logger.info("✅ 混合检索双擎已完成高保真写入！")
 
     def search(self, query: str, top_k: int = 5) -> List[Document]:
         """【终极形态】BM25/Qdrant 双路召回 -> Rerank 精排 -> Difflib 去重"""
@@ -181,6 +181,6 @@ class QdrantDBProvider(BaseVectorDB):
             self.bm25_corpus = []
             self.bm25_model = None
             
-            print("🗑️ 向量库与 BM25 索引已彻底清空并重置为初始状态！")
+            logger.info("🗑️ 向量库与 BM25 索引已彻底清空并重置为初始状态！")
         except Exception as e:
-            print(f"⚠️ 清空索引时出错: {e}")
+            logger.exception(f"⚠️ 清空索引时出错: {e}")
