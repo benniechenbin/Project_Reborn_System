@@ -45,6 +45,7 @@ class RAGEngine:
             tone = f"{self.child_nickname}现在已经是成年人了（大约 {age} 岁）。请使用成年人之间深沉、平等的对话方式，分享你的人生智慧和哲学思考。"
             
         return f"【动态感知】孩子大名：{self.child_name}，小名：{self.child_nickname}，性别：{self.child_gender}，当前年龄：{age} 岁。\n【强制语气约束】：{tone}"
+        
     def _get_level_1_rom(self) -> str:
         """Level 1: 基础身份与安全锁 (约 200 Tokens)"""
         persona_file = self.core_memories_path / "00_Master_Identity.md" 
