@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     llm_api_key: str = Field(default="", description="大模型 API Key")
     llm_model_name: str = Field(default="deepseek-chat", description="大模型名称")
 
+    # 陪伴对象信息
+    child_name: str = Field(..., description="分身陪伴的儿童大名")
+    child_nickname: str = Field(..., description="分身陪伴的儿童小名/昵称")
+    child_gender: str = Field(..., description="儿童性别(男/女)")
+    child_birthday: str = Field(..., description="儿童出生日期(YYYY-MM-DD)")
+
     # Project Reborn 专属扫描白名单
     REBORN_TARGET_FOLDERS: list = [
         "02_Values",

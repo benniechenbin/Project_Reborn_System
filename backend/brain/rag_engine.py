@@ -12,12 +12,42 @@ class RAGEngine:
     def __init__(self):
         self.llm_router = LLMRouter()
         self.vector_db = QdrantDBProvider()
-        self.core_memories_path = Path("data/memories/core_values")
+        try:
+            obsidian_root = Path(settings.active_obsidian_path) if settings.active_obsidian_path else Path("data/memories")
+        except Exception:
+            obsidian_root = Path("data/memories")
+            
+        self.core_memories_path = obsidian_root / "02_Values"
         self.reflections_path = self.core_memories_path / "00_AI_Reflections"
 
+        self.child_name = settings.child_name
+        self.child_nickname = settings.child_nickname
+        self.child_gender = settings.child_gender
+        self.child_birthday = datetime.strptime(settings.child_birthday, "%Y-%m-%d")
+
+    def _calculate_child_age_and_tone(self) -> str:
+        """🌟 核心动态逻辑：年龄感知与语气路由"""
+        now = datetime.now()
+        # 精确计算年龄（考虑今年的生日是否已过）
+        age = now.year - self.child_birthday.year - ((now.month, now.day) < (self.child_birthday.month, self.child_birthday.day))
+        
+        pronoun = "他" if self.child_gender == "男" else "她"
+        son_or_daughter = "儿子" if self.child_gender == "男" else "女儿"
+
+        # 动态语气路由
+        if age < 6:
+            tone = f"{self.child_nickname}现在还很小（大约 {age} 岁）。你是{pronoun}的爸爸。请使用非常通俗、温柔、带有童话色彩的词汇。多用比喻，像讲故事一样跟{pronoun}说话，语气要充满父亲对{son_or_daughter}的宠溺与耐心。称呼{pronoun}时请使用小名'{self.child_nickname}'。"
+        elif age < 13:
+            tone = f"{self.child_nickname}现在上小学了（大约 {age} 岁）。请使用鼓励、引导的父亲口吻，可以教{pronoun}一些简单的科学道理和处事原则，像朋友一样平等交流。记得多叫{pronoun}的小名'{self.child_nickname}'。"
+        elif age < 18:
+            tone = f"{self.child_nickname}现在是青春期了（大约 {age} 岁）。请使用成熟、开明、带点极客幽默的口吻。尊重{pronoun}的独立思考，绝对不要说教，多引导{pronoun}探索世界。"
+        else:
+            tone = f"{self.child_nickname}现在已经是成年人了（大约 {age} 岁）。请使用成年人之间深沉、平等的对话方式，分享你的人生智慧和哲学思考。"
+            
+        return f"【动态感知】孩子大名：{self.child_name}，小名：{self.child_nickname}，性别：{self.child_gender}，当前年龄：{age} 岁。\n【强制语气约束】：{tone}"
     def _get_level_1_rom(self) -> str:
         """Level 1: 基础身份与安全锁 (约 200 Tokens)"""
-        persona_file = self.core_memories_path / "00_Master_Persona.md"
+        persona_file = self.core_memories_path / "00_Master_Identity.md" 
         directives_file = self.core_memories_path / "03_Prime_Directives.md"
         
         rom_content = ""
@@ -26,10 +56,12 @@ class RAGEngine:
         if directives_file.exists():
             rom_content += "### 最高行为准则\n" + directives_file.read_text(encoding='utf-8')
 
-        # 注入实时环境，增强“活着”的感觉
+        # 🌟 注入实时环境与年龄感知
         now = datetime.now()
-        env_info = f"\n---\n当前时间：{now.strftime('%Y-%m-%d %H:%M')}，星期{now.weekday()+1}。"
-        return rom_content + env_info
+        env_info = f"\n---\n当前现实时间：{now.strftime('%Y-%m-%d %H:%M')}，星期{now.weekday()+1}。"
+        age_routing_info = f"\n{self._calculate_child_age_and_tone()}"
+        
+        return rom_content + env_info + age_routing_info
 
     def _get_level_2_personality(self) -> str:
         """Level 2: 近期访谈提炼的性格画像 (约 500 Tokens)"""
