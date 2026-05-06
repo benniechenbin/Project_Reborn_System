@@ -11,7 +11,9 @@ project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
 
 from backend.core.bootstrap import init_system
-init_system()
+if "system_bootstrapped" not in st.session_state:
+    init_system()
+    st.session_state.system_bootstrapped = True
 from backend.brain.stt_engine import STTEngine
 from backend.memory.relational.db_manager import DBManager
 from backend.brain.llm_router import LLMRouter
