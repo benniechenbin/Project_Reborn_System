@@ -5,6 +5,10 @@ from pydantic import Field
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+LOCAL_MODELS_DIR = PROJECT_ROOT / "data" / "local_models"
+
+models_dir: Path = Field(default=LOCAL_MODELS_DIR, description="所有离线大模型的存放根目录")
+hf_mirror: str = Field(default="https://hf-mirror.com", description="HuggingFace 镜像源")
 
 class Settings(BaseSettings):
     """全局系统配置中心 (纯净版：无副作用，无外部依赖)"""
@@ -25,13 +29,12 @@ class Settings(BaseSettings):
     llm_base_url: str = Field(default="https://api.deepseek.com", description="大模型 API Base URL")
     llm_api_key: str = Field(default="", description="大模型 API Key")
     llm_model_name: str = Field(default="deepseek-chat", description="大模型名称")
-<<<<<<< HEAD
     
     # 语音转文字 (STT) API 配置
     stt_base_url: str = Field(default="https://api.openai.com/v1", description="STT API Base URL")
     stt_api_key: str = Field(default="", description="STT API Key")
     stt_model_name: str = Field(default="whisper-1", description="STT 模型名称")
-=======
+
 
     # 陪伴对象信息
     child_name: str = Field(..., description="分身陪伴的儿童大名")
@@ -39,7 +42,6 @@ class Settings(BaseSettings):
     child_gender: str = Field(..., description="儿童性别(男/女)")
     child_birthday: str = Field(..., description="儿童出生日期(YYYY-MM-DD)")
 
->>>>>>> 0723d839f658f5233de807eaa8a5da9fa57c626b
     # Project Reborn 专属扫描白名单
     REBORN_TARGET_FOLDERS: list = [
         "02_Values",

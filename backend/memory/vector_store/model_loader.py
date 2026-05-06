@@ -1,20 +1,16 @@
-# backend/memory/vector_store/model_loader.py
 import os
 import functools
 from pathlib import Path
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from backend.observability.logger import logger
-
-# 获取项目根目录，确保绝对路径的稳固
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-LOCAL_MODELS_DIR = PROJECT_ROOT / "data" / "local_models"
+from backend.config.settings import settings
 
 @functools.lru_cache(maxsize=1)
 def load_embedding_model():
     """加载 Embedding 模型：优先本地，缺失时自动下载并固化"""
     model_name = "BAAI/bge-small-zh-v1.5"
     # 定义项目内的专属存放路径
-    local_model_path = LOCAL_MODELS_DIR / "bge-small-zh-v1.5"
+    local_model_path = settings.models_dir / "bge-small-zh-v1.5"
 
     try:
         if local_model_path.exists():
@@ -22,7 +18,7 @@ def load_embedding_model():
             return SentenceTransformer(str(local_model_path))
         else:
             logger.info(f"🌐 正在从镜像源首次下载 Embedding 模型: {model_name} ...")
-            os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+            os.environ["HF_ENDPOINT"] = settings.hf_mirror
             model = SentenceTransformer(model_name)
             
             # 下载完毕后，立刻保存到项目的 local_models 目录中
@@ -46,7 +42,7 @@ def load_reranker_model():
             return CrossEncoder(str(local_model_path), max_length=512)
         else:
             logger.info("🌐 正在从镜像源执行首次下载 Reranker...")
-            os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+            os.environ["HF_ENDPOINT"] = settings.hf_mirror
             model = CrossEncoder("BAAI/bge-reranker-base", max_length=512)
             
             local_model_path.mkdir(parents=True, exist_ok=True)
