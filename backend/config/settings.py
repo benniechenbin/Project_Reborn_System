@@ -25,7 +25,11 @@ class Settings(BaseSettings):
     llm_base_url: str = Field(default="https://api.deepseek.com", description="大模型 API Base URL")
     llm_api_key: str = Field(default="", description="大模型 API Key")
     llm_model_name: str = Field(default="deepseek-chat", description="大模型名称")
-
+    
+    # 语音转文字 (STT) API 配置
+    stt_base_url: str = Field(default="https://api.openai.com/v1", description="STT API Base URL")
+    stt_api_key: str = Field(default="", description="STT API Key")
+    stt_model_name: str = Field(default="whisper-1", description="STT 模型名称")
     # Project Reborn 专属扫描白名单
     REBORN_TARGET_FOLDERS: list = [
         "02_Values",

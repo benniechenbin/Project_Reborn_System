@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 import sys
+from audio_recorder_streamlit import audio_recorder
+from datetime import datetime
 
 # 🚨 动态路径处理：确保 Streamlit 能在重构后的结构中找到所有模块
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -9,6 +11,7 @@ project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
 
 from backend.core.bootstrap import init_system
+from backend.brain.stt_engine import STTEngine
 init_system()
 
 from backend.memory.relational.db_manager import DBManager
@@ -241,6 +244,38 @@ with st.sidebar:
     st.header("🌌 Reborn 核心枢纽")
     st.divider()
     view_mode = st.radio("功能模块:", options=["📊 资产同步与监控", "🧠 灵魂采访室", "💬 陪伴沙盒(测试)"])
+    
+    st.divider()
+    st.markdown("### 🕳️ 意识流树洞 (随时倾诉)")
+    st.caption("点击麦克风，录下你的只言片语。AI 将在后台默默倾听并提炼入库。")
+    
+    # 渲染录音组件
+    audio_bytes = audio_recorder(
+        text="点击录音 / 点击停止",
+        recording_color="#e84118",
+        neutral_color="#353b48",
+        icon_name="microphone",
+        icon_size="2x"
+    )
+
+    if audio_bytes:
+        st.success("✅ 音频捕获成功！(大小: {:.2f} KB)".format(len(audio_bytes) / 1024))
+        
+        if st.button("🚀 将这段语音丢进树洞"):
+            with st.spinner("正在倾听你的声音... (Whisper 解析中)"):
+                
+                # 1. 实例化引擎并执行听写
+                stt = STTEngine()
+                transcribed_text = stt.transcribe_audio_bytes(audio_bytes)
+                
+                if transcribed_text:
+                    # 2. 成功！把识别出来的文字展示出来
+                    st.info(f"🗣️ **你的意识流:**\n\n {transcribed_text}")
+                    st.success("🎉 Whisper 解析完成！下一步将接入静默提炼逻辑。")
+                    # TODO: 明天我们在这里调用 interview_service 把它存进 Obsidian
+                else:
+                    st.error("糟糕，我没听清（或者 API 没配置好），请检查后台终端报错并重试。")
+
     st.divider()
     
     if view_mode == "📊 资产同步与监控":
