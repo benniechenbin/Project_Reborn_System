@@ -7,12 +7,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 LOCAL_MODELS_DIR = PROJECT_ROOT / "data" / "local_models"
 
-models_dir: Path = Field(default=LOCAL_MODELS_DIR, description="所有离线大模型的存放根目录")
-hf_mirror: str = Field(default="https://hf-mirror.com", description="HuggingFace 镜像源")
-
 class Settings(BaseSettings):
     """全局系统配置中心 (纯净版：无副作用，无外部依赖)"""
     
+    models_dir: Path = Field(default=LOCAL_MODELS_DIR, description="所有离线大模型的存放根目录")
+    hf_mirror: str = Field(default="https://hf-mirror.com", description="HuggingFace 镜像源")
     # 基础存储配置
     db_path: str = Field(default="data/sqlite/reborn.db", description="SQLite数据库路径")
     vector_db_path: str = Field(default="data/qdrant_db", description="向量数据库存储目录")

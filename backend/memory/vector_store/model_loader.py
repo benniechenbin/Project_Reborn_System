@@ -34,7 +34,7 @@ def load_embedding_model():
 @functools.lru_cache(maxsize=1)
 def load_reranker_model():
     """加载重排序模型 (支持本地固化)"""
-    local_model_path = LOCAL_MODELS_DIR / "bge-reranker-base"
+    local_model_path = settings.models_dir / "bge-reranker-base"
 
     try:
         if local_model_path.exists():

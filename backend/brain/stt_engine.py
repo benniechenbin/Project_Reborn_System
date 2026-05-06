@@ -10,7 +10,7 @@ os.environ["MODELSCOPE_CACHE"] = str(settings.models_dir)
 class STTEngine:
     def __init__(self):
         logger.info(f"⏳ 准备加载达摩 ASR...")
-        logger.info(f"📁 模型路径已锁定至: {LOCAL_MODELS_DIR}")
+        logger.info(f"📁 模型路径已锁定至: {settings.models_dir}")
         
         # 首次运行会自动下载到我们刚刚指定的 data/local_models/ 里
         self.model = AutoModel(
