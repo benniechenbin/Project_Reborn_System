@@ -12,5 +12,8 @@ rank_bm25==0.2.2
 sentence_transformers==5.2.3
 streamlit==1.30.0
 streamlit==1.53.1
+<<<<<<< HEAD
 audio-recorder-streamlit
+=======
+>>>>>>> 0723d839f658f5233de807eaa8a5da9fa57c626b
 watchdog
