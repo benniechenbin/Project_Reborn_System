@@ -23,9 +23,7 @@ from backend.services.interview_service import InterviewService
 
 from backend.brain.prompts import (
     CREATOR_INTERVIEW_PROMPT, 
-    MEMORY_EXTRACTION_PROMPT,
-    STORY_INTERVIEW_PROMPT,   
-    STORY_EXTRACTION_PROMPT,
+    STORY_INTERVIEW_PROMPT, 
     IDENTITY_CONSOLIDATION_PROMPT
 )
 # ==========================================
@@ -176,8 +174,8 @@ def render_creator_studio():
             if len(st.session_state.creator_chat) < 3:
                 st.warning("⚠️ 内容太少，再多聊几句吧。")
             else:
-                with st.spinner("AI 正在深度提炼并同步进化身份核..."):
-                    # 🚀 调用封装好的业务逻辑
+                with st.spinner("AI 正在深度提炼记忆..."):
+                    # 🚀 1. 调用封装好的业务逻辑提炼记忆
                     success, result = st.session_state.interview_service.process_and_save_interview(
                         chat_history=st.session_state.creator_chat,
                         interview_mode=interview_mode,
@@ -185,28 +183,27 @@ def render_creator_studio():
                     )
                     
                     if success:
-                        st.success("✅ 记忆已存入 Obsidian，且身份核已同步进化！")
-                        st.toast("🧬 身份核已完成一次增量演进", icon="✅")
+                        st.success("✅ 记忆碎片已存入 Obsidian！")
                         with st.expander("查看本次提炼的笔记"):
                             st.markdown(result)
+                            
+                        # 🚀 2. 只有记忆保存成功后，才触发身份核进化！(修复缩进和变量)
+                        with st.spinner("AI 正在将新记忆融合进全局身份核 (捕获语言指纹)..."):
+                            old_identity = st.session_state.memory_writer.read_master_identity()
+                            consolidation_msgs = [
+                                IDENTITY_CONSOLIDATION_PROMPT,
+                                # 【修复点】：把 insight 改成 result
+                                {"role": "user", "content": f"旧身份核：\n{old_identity}\n\n新记忆碎片：\n{result}"}
+                            ]
+                            # 调用 LLM 进行合并
+                            updated_identity = st.session_state.llm_router.generate_response(consolidation_msgs)
+                            
+                            # 覆盖写入 Master Identity
+                            if st.session_state.memory_writer.save_master_identity(updated_identity):
+                                st.toast("✅ 语言指纹已捕获，身份核同步进化！", icon="🧬")
                     else:
-                        # 在这里接住底层抛出的异常，进行“安抚用户”
-                        st.error(f"❌ 同步失败：{result}")
+                        st.error(f"❌ 记忆提炼失败：{result}")
                         st.info("建议检查网络连接或后端日志。")
-                        
-                # 👈 注意这里的缩进！它应该紧接着上面的保存逻辑，但仍然在 else 分支内
-                with st.spinner("AI 正在提炼记忆并更新身份核..."):
-                    old_identity = st.session_state.memory_writer.read_master_identity()
-                    consolidation_msgs = [
-                        IDENTITY_CONSOLIDATION_PROMPT,
-                        {"role": "user", "content": f"旧身份核：\n{old_identity}\n\n新记忆碎片：\n{insight}"}
-                    ]
-                    # 调用 LLM 进行合并
-                    updated_identity = st.session_state.llm_router.generate_response(consolidation_msgs)
-                    
-                    # 覆盖写入
-                    if st.session_state.memory_writer.save_master_identity(updated_identity):
-                        st.toast("✅ 身份核(Master Identity)已同步进化！", icon="🧬")
 def render_avatar_sandbox():
     """视图 3：陪伴沙盒 (测试分身语气)"""
     st.title("👶 陪伴沙盒 (Alpha)")
