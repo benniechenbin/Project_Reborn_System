@@ -90,39 +90,36 @@ class RAGEngine:
     def _get_level_3_ram(self, query: str) -> str:
         """Level 3: 向量库检索到的往事 (约 1000 Tokens)"""
         try:
-            # 召回最相关的 3 个故事片段
             memories = self.vector_db.search(query, top_k=3)
             if not memories:
-                return "（此刻脑海中没有想起具体的往事细节）"
+                return "（此刻脑海中没有想起具体的往事细节）", [] 
             
-            return "\n".join([f"- {doc.page_content}" for doc in memories])
+            ram_text = "\n".join([f"- {doc.page_content}" for doc in memories])
+            return ram_text, memories 
         except Exception as e:
             logger.error(f"RAM 检索失败: {e}")
-            return "（记忆通路暂时阻塞）"
+            return "（记忆通路暂时阻塞）", []
 
-    def generate_avatar_response(self, user_query: str, chat_history: list = None) -> str:
+    def generate_avatar_response(self, user_query: str, chat_history: list = None) -> tuple:
         """生成分身的最终回复"""
-        # 1. 采集各层级数据
         l1 = self._get_level_1_rom()
         l2 = self._get_level_2_personality()
-        l3 = self._get_level_3_ram(user_query)
+        l3_text, references = self._get_level_3_ram(user_query)
 
-        # 2. 注入模版
         full_system_prompt = AVATAR_RAG_FRAMEWORK.format(
             level_1_rom=l1,
             level_2_personality=l2,
-            level_3_ram=l3
+            level_3_ram=l3_text
         )
 
-        # 3. 构造消息
         messages = [{"role": "system", "content": full_system_prompt}]
         if chat_history:
-            # 只保留 user 和 assistant 的近期对话（滑动窗口）
             history = [m for m in chat_history if m["role"] != "system"][-10:]
             messages.extend(history)
         
         messages.append({"role": "user", "content": user_query})
 
-        # 4. 生成
-        logger.info(f"🧠 分身正在思考... RAM 召回长度: {len(l3)}")
-        return self.llm_router.generate_response(messages)
+        logger.info(f"🧠 分身正在思考... RAM 召回长度: {len(l3_text)}")
+        
+        response_text = self.llm_router.generate_response(messages)
+        return response_text, references

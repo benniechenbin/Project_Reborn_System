@@ -229,11 +229,17 @@ def render_avatar_sandbox():
         # 暂时使用基础提示词，未来在此注入 RAG 检索结果
         with st.chat_message("assistant", avatar="👨‍💻"):
             with st.spinner("爸爸正在回忆..."):               
-                response = st.session_state.rag_engine.generate_avatar_response(
+                response, references = st.session_state.rag_engine.generate_avatar_response(
                     prompt, 
                     st.session_state.sandbox_chat[:-1] 
                 )
                 st.markdown(response)
+                if references:
+                    with st.expander("🔍 看看爸爸回想起了哪段记忆？"):
+                        for i, doc in enumerate(references): 
+                            source_name = os.path.basename(doc.metadata.get('source', '未知笔记'))
+                            st.caption(f"来源 {i+1}: {source_name}")
+                            st.write(doc.page_content)
         st.session_state.sandbox_chat.append({"role": "assistant", "content": response})
 
 # ==========================================
@@ -256,7 +262,6 @@ with st.sidebar:
         icon_name="microphone",
         icon_size="2x"
     )
-
     if audio_bytes:
         st.success("✅ 音频捕获成功！(大小: {:.2f} KB)".format(len(audio_bytes) / 1024))
         
