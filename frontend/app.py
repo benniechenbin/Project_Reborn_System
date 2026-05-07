@@ -268,12 +268,32 @@ with st.sidebar:
                 transcribed_text = stt.transcribe_audio_bytes(audio_bytes)
                 
                 if transcribed_text:
-                    # 2. 成功！把识别出来的文字展示出来
                     st.info(f"🗣️ **你的意识流:**\n\n {transcribed_text}")
-                    st.success("🎉 Whisper 解析完成！下一步将接入静默提炼逻辑。")
-                    # TODO: 明天我们在这里调用 interview_service 把它存进 Obsidian
+                    
+                    # ==========================================
+                    # 🚀 任务三核心：AI 提炼与 Obsidian 静默入库
+                    # ==========================================
+                    with st.spinner("🧠 正在唤醒大模型提炼灵感，并写入 Obsidian..."):
+                        # 1. 把你的“碎碎念”包装成单轮对话格式，喂给服务层
+                        treehole_context = [{"role": "user", "content": f"【树洞语音速记】\n{transcribed_text}"}]
+                        
+                        # 2. 调用现有的业务逻辑进行处理 (当做 RAM 日常记忆处理，让 AI 自动起标题)
+                        success, result = st.session_state.interview_service.process_and_save_interview(
+                            chat_history=treehole_context,
+                            interview_mode="📖 记录往事 (RAM)", 
+                            custom_title="" 
+                        )
+                        
+                        # 3. 结果反馈
+                        if success:
+                            st.toast("✅ 树洞记忆已永久封存！", icon="💾")
+                            st.success("🎉 记忆闭环已打通！")
+                            with st.expander("👀 查看 AI 提炼的 Obsidian 笔记卡片"):
+                                st.markdown(result)
+                        else:
+                            st.error(f"❌ 封存失败，请检查网络或日志：{result}")
                 else:
-                    st.error("糟糕，我没听清（或者 API 没配置好），请检查后台终端报错并重试。")
+                    st.warning("🤫 好像没听到声音，或者 VAD 把背景音过滤掉了。再试一次？")
 
     st.divider()
     
