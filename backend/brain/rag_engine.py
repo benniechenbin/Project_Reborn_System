@@ -1,7 +1,7 @@
-import os
-import logging
+import json
 from pathlib import Path
 from datetime import datetime
+
 from backend.brain.llm_router import LLMRouter
 from backend.brain.prompts import AVATAR_RAG_FRAMEWORK
 from backend.memory.vector_store.vector_qdrant import QdrantDBProvider
@@ -12,6 +12,7 @@ class RAGEngine:
     def __init__(self):
         self.llm_router = LLMRouter()
         self.vector_db = QdrantDBProvider()
+        # 确定记忆存储路径
         try:
             obsidian_root = Path(settings.active_obsidian_path) if settings.active_obsidian_path else Path("data/memories")
         except Exception:
@@ -19,6 +20,9 @@ class RAGEngine:
             
         self.core_memories_path = obsidian_root / "02_Values"
         self.reflections_path = self.core_memories_path / "00_AI_Reflections"
+        
+        # 🚀 新增：盲区记录文件路径
+        self.gap_file = Path("data/memory_gaps.json")
 
         self.child_name = settings.child_name
         self.child_nickname = settings.child_nickname
@@ -87,42 +91,70 @@ class RAGEngine:
         
         return "\n\n".join(summaries) if summaries else "（暂无近期性格碎片）"
 
-    def _get_level_3_ram(self, query: str) -> str:
-        """Level 3: 向量库检索到的往事 (约 1000 Tokens)"""
+    def _get_level_3_ram(self, query: str) -> tuple:
+        """🚀 升级版：返回内容和最高检索分数"""
         try:
-            # 召回最相关的 3 个故事片段
             memories = self.vector_db.search(query, top_k=3)
             if not memories:
-                return "（此刻脑海中没有想起具体的往事细节）"
+                return "（此刻脑海中没有想起具体的往事细节）", -1.0
             
-            return "\n".join([f"- {doc.page_content}" for doc in memories])
+            # 提取最高分数（假设 search 返回的 doc.metadata 包含 rerank_score）
+            max_score = memories[0].metadata.get("rerank_score", 0.0)
+            ram_text = "\n".join([f"- {doc.page_content}" for doc in memories])
+            return ram_text, max_score
         except Exception as e:
             logger.error(f"RAM 检索失败: {e}")
-            return "（记忆通路暂时阻塞）"
+            return "（记忆通路暂时阻塞）", -1.0
+    
+    def _record_memory_gap(self, query: str, score: float):
+        """🚀 核心：记录记忆盲区日志"""
+        gap_entry = {
+            "query": query,
+            "score": score,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        gaps = []
+        if self.gap_file.exists():
+            try:
+                with open(self.gap_file, 'r', encoding='utf-8') as f:
+                    gaps = json.load(f)
+            except Exception:
+                gaps = []
+        
+        # 只保留最近 100 条记录
+        gaps.append(gap_entry)
+        gaps = gaps[-100:]
+        
+        with open(self.gap_file, 'w', encoding='utf-8') as f:
+            json.dump(gaps, f, ensure_ascii=False, indent=2)
+        logger.warning(f"🕵️ 发现记忆盲区，已记录查询: {query} (Score: {score})")
 
     def generate_avatar_response(self, user_query: str, chat_history: list = None) -> str:
         """生成分身的最终回复"""
         # 1. 采集各层级数据
         l1 = self._get_level_1_rom()
         l2 = self._get_level_2_personality()
-        l3 = self._get_level_3_ram(user_query)
+        l3_text, max_score = self._get_level_3_ram(user_query)
 
-        # 2. 注入模版
+        # 🚀 2. 盲区监测：如果分数太低（低于 -0.8），记录到任务清单
+        if max_score < -0.8:
+            self._record_memory_gap(user_query, max_score)
+
+        # 3. 注入模版
         full_system_prompt = AVATAR_RAG_FRAMEWORK.format(
             level_1_rom=l1,
             level_2_personality=l2,
-            level_3_ram=l3
+            level_3_ram=l3_text
         )
 
-        # 3. 构造消息
+        # 4. 构造消息
         messages = [{"role": "system", "content": full_system_prompt}]
         if chat_history:
-            # 只保留 user 和 assistant 的近期对话（滑动窗口）
             history = [m for m in chat_history if m["role"] != "system"][-10:]
             messages.extend(history)
-        
         messages.append({"role": "user", "content": user_query})
 
-        # 4. 生成
-        logger.info(f"🧠 分身正在思考... RAM 召回长度: {len(l3)}")
+        # 5. 生成
+        logger.info(f"🧠 分身正在思考... RAM 召回分值: {max_score}")
         return self.llm_router.generate_response(messages)
