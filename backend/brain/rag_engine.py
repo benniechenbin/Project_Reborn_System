@@ -1,8 +1,8 @@
 
 import json
-
 from pathlib import Path
 from datetime import datetime
+
 from backend.brain.llm_router import LLMRouter
 from backend.brain.prompts import AVATAR_RAG_FRAMEWORK
 from backend.memory.vector_store.vector_qdrant import QdrantDBProvider
@@ -29,8 +29,6 @@ class RAGEngine:
         self.child_nickname = settings.child_nickname
         self.child_gender = settings.child_gender
         self.child_birthday = datetime.strptime(settings.child_birthday, "%Y-%m-%d")
-
-    # ... _calculate_child_age_and_tone, _get_level_1_rom, _get_level_2_personality 保持不变 ...
 
     def _calculate_child_age_and_tone(self) -> str:
         """🌟 核心动态逻辑：年龄感知与语气路由"""
