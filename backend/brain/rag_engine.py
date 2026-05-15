@@ -73,19 +73,21 @@ class RAGEngine:
         return "\n\n".join(summaries) if summaries else "（暂无近期性格碎片）"
 
     def _get_level_3_ram(self, query: str) -> tuple:
-        """🚀 升级版：返回内容和最高检索分数"""
+        """🚀 终极版：返回 (文本, 分数, 原始记忆源)"""
         try:
             memories = self.vector_db.search(query, top_k=3)
             if not memories:
-                return "（此刻脑海中没有想起具体的往事细节）", -1.0
+                return "（此刻脑海中没有想起具体的往事细节）", -1.0, []
             
-            # 提取最高分数（假设 search 返回的 doc.metadata 包含 rerank_score）
+            # 提取最高分数
             max_score = memories[0].metadata.get("rerank_score", 0.0)
             ram_text = "\n".join([f"- {doc.page_content}" for doc in memories])
-            return ram_text, max_score
+            
+            # 必须把 memories (即 references) 也返回，给前端用
+            return ram_text, max_score, memories
         except Exception as e:
             logger.error(f"RAM 检索失败: {e}")
-            return "（记忆通路暂时阻塞）", -1.0
+            return "（记忆通路暂时阻塞）", -1.0, []
 
     def _record_memory_gap(self, query: str, score: float):
         """🚀 核心：记录记忆盲区日志"""
@@ -111,31 +113,32 @@ class RAGEngine:
             json.dump(gaps, f, ensure_ascii=False, indent=2)
         logger.warning(f"🕵️ 发现记忆盲区，已记录查询: {query} (Score: {score})")
 
-    def generate_avatar_response(self, user_query: str, chat_history: list = None) -> str:
+    def generate_avatar_response(self, user_query: str, chat_history: list = None) -> tuple:
         """生成分身的最终回复"""
-        # 1. 采集各层级数据
         l1 = self._get_level_1_rom()
         l2 = self._get_level_2_personality()
-        l3_text, max_score = self._get_level_3_ram(user_query)
+        
+        # 🚀 完美接住三个返回值
+        l3_text, max_score, references = self._get_level_3_ram(user_query)
 
-        # 🚀 2. 盲区监测：如果分数太低（低于 -0.8），记录到任务清单
+        # 盲区监测
         if max_score < -0.8:
             self._record_memory_gap(user_query, max_score)
 
-        # 3. 注入模版
         full_system_prompt = AVATAR_RAG_FRAMEWORK.format(
             level_1_rom=l1,
             level_2_personality=l2,
             level_3_ram=l3_text
         )
 
-        # 4. 构造消息
         messages = [{"role": "system", "content": full_system_prompt}]
         if chat_history:
             history = [m for m in chat_history if m["role"] != "system"][-10:]
             messages.extend(history)
         messages.append({"role": "user", "content": user_query})
 
-        # 5. 生成
         logger.info(f"🧠 分身正在思考... RAM 召回分值: {max_score}")
-        return self.llm_router.generate_response(messages)
+        response_text = self.llm_router.generate_response(messages)
+        
+        # 🚀 必须返回元组，满足 app.py 的解包需求
+        return response_text, references
