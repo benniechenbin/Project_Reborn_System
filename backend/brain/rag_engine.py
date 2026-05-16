@@ -3,11 +3,11 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from backend.brain.llm_router import LLMRouter
-from backend.brain.prompts import AVATAR_RAG_FRAMEWORK
-from backend.memory.vector_store.vector_qdrant import QdrantDBProvider
-from backend.config.settings import settings
-from backend.observability.logger import logger
+from .llm_router import LLMRouter
+from .prompts import AVATAR_RAG_FRAMEWORK
+from backend.config import settings
+from backend.memory.vector_store import QdrantDBProvider
+from backend.observability import logger
 
 class RAGEngine:
     def __init__(self):

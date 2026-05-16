@@ -1,7 +1,7 @@
 import os
 import wave
 from pathlib import Path
-from backend.observability.logger import logger
+from backend.observability import logger
 
 class AssetScanner:
     def __init__(self, obsidian_path, audio_path):

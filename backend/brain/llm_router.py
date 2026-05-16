@@ -1,7 +1,7 @@
 import time
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from backend.observability.logger import logger
-from backend.config.settings import settings
+from backend.config import settings
+from backend.observability import logger
 from openai import OpenAI
 
 class LLMRouter:

@@ -2,8 +2,8 @@ import re
 import os
 from datetime import datetime
 from pathlib import Path
-from backend.observability.logger import logger
-from backend.config.settings import settings
+from backend.config import settings
+from backend.observability import logger
 
 class MemoryWriter:
     def __init__(self):

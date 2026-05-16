@@ -2,8 +2,8 @@ import os
 import functools
 from pathlib import Path
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from backend.observability.logger import logger
-from backend.config.settings import settings
+from backend.config import settings
+from backend.observability import logger
 
 @functools.lru_cache(maxsize=1)
 def load_embedding_model():

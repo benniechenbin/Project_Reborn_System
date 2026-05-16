@@ -1,8 +1,8 @@
 import os
 import tempfile
 from funasr import AutoModel
-from backend.observability.logger import logger
-from backend.config.settings import settings
+from backend.config import settings
+from backend.observability import logger
 
 settings.models_dir.mkdir(parents=True, exist_ok=True)
 os.environ["MODELSCOPE_CACHE"] = str(settings.models_dir)

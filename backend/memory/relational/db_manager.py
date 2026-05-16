@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
-from backend.observability.logger import logger
-from backend.config.settings import settings
+from backend.config import settings
+from backend.observability import logger
 
 class DBManager:
     def __init__(self):

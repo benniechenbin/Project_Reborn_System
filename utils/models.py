@@ -2,7 +2,7 @@ import os
 import functools
 from pathlib import Path
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from backend.observability.logger import logger
+from backend.observability import logger
 
 def load_embedding_model(model_name: str = "BAAI/bge-small-zh-v1.5"):
     """加载 Embedding 模型：优先本地，缺失时自动下载"""

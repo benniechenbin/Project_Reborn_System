@@ -9,14 +9,11 @@ sys.path.append(project_root)
 # from backend.core.bootstrap import init_system
 # init_system()
 
-from backend.observability.logger import logger
-from backend.config.settings import settings
-from backend.knowledge_base.scanner import AssetScanner
-from backend.memory.relational.db_manager import DBManager
-
-# 🚨 新增：引入你的核心 RAG 组件
-from backend.knowledge_base.pipeline import load_processed_knowledge
-from backend.memory.vector_store.vector_qdrant import QdrantDBProvider
+from backend.config import settings
+from backend.knowledge_base import AssetScanner, load_processed_knowledge
+from backend.memory.relational import DBManager
+from backend.memory.vector_store import QdrantDBProvider
+from backend.observability import logger
 
 def fetch_real_metrics():
     """从硬盘获取真实的统计数据（保持原样）"""

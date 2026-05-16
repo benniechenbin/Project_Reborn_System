@@ -10,23 +10,23 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
 
-from backend.core.bootstrap import init_system
+from backend.core import init_system
+from backend.brain import (
+    CREATOR_INTERVIEW_PROMPT,
+    IDENTITY_CONSOLIDATION_PROMPT,
+    LLMRouter,
+    RAGEngine,
+    STORY_INTERVIEW_PROMPT,
+    STTEngine,
+)
+from backend.memory import MemoryWriter
+from backend.memory.relational import DBManager
+from backend.services import InterviewService
+from scripts.run_sync import execute_full_sync
+
 if "system_bootstrapped" not in st.session_state:
     init_system()
     st.session_state.system_bootstrapped = True
-from backend.brain.stt_engine import STTEngine
-from backend.memory.relational.db_manager import DBManager
-from backend.brain.llm_router import LLMRouter
-from backend.brain.rag_engine import RAGEngine
-from backend.memory.memory_writer import MemoryWriter
-from scripts.run_sync import execute_full_sync
-from backend.services.interview_service import InterviewService
-
-from backend.brain.prompts import (
-    CREATOR_INTERVIEW_PROMPT, 
-    STORY_INTERVIEW_PROMPT, 
-    IDENTITY_CONSOLIDATION_PROMPT
-)
 
 # ==========================================
 # 1. 页面全局配置

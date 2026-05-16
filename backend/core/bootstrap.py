@@ -1,6 +1,6 @@
 from pathlib import Path
-from backend.config.settings import settings
-from backend.observability.logger import setup_logger, logger
+from backend.config import settings
+from backend.observability import logger, setup_logger
 
 def init_system():
     """

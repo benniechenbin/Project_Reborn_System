@@ -1,9 +1,9 @@
 import pandas as pd
-from backend.observability.logger import logger
-from backend.brain.prompts import (
-    MEMORY_EXTRACTION_PROMPT, 
+from backend.observability import logger
+from backend.brain import (
+    IDENTITY_CONSOLIDATION_PROMPT,
+    MEMORY_EXTRACTION_PROMPT,
     STORY_EXTRACTION_PROMPT,
-    IDENTITY_CONSOLIDATION_PROMPT
 )
 
 class InterviewService:
