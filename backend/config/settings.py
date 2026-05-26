@@ -1,28 +1,32 @@
 import platform
-import os
+from functools import lru_cache
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
-from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-LOCAL_MODELS_DIR = PROJECT_ROOT / "data" / "local_models"
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+LOCAL_MODELS_DIR = BASE_DIR / "data" / "local_models"
 
 class Settings(BaseSettings):
     """全局系统配置中心 (纯净版：无副作用，无外部依赖)"""
-    
+    base_dir: Path = Field(default=BASE_DIR, description="Project Reborn 项目根目录")
+
+    log_dir: Path = Path("logs")
+    log_level: str = "DEBUG"
+
     models_dir: Path = Field(default=LOCAL_MODELS_DIR, description="所有离线大模型的存放根目录")
     hf_mirror: str = Field(default="https://hf-mirror.com", description="HuggingFace 镜像源")
     # 基础存储配置
-    db_path: str = Field(default="data/sqlite/reborn.db", description="SQLite数据库路径")
-    vector_db_path: str = Field(default="data/qdrant_db", description="向量数据库存储目录")
+    db_path: Path = Field(default=Path("data/sqlite/reborn.db"))
+    vector_db_path: Path = Field(default=Path("data/qdrant_db"))
     
     # Obsidian 跨端路径
-    obsidian_vault_path_mac: str = Field(default="", description="Mac端iCloud路径")
-    obsidian_vault_path_win: str = Field(default="", description="Windows端iCloud路径")
+    obsidian_vault_path_mac: Path = Field(default=Path(""), description="Mac端iCloud路径")
+    obsidian_vault_path_win: Path = Field(default=Path(""), description="Windows端iCloud路径")
     
     # 录音资产跨端路径
-    audio_data_path_mac: str = Field(default="", description="Mac端录音iCloud路径")
-    audio_data_path_win: str = Field(default="", description="Windows端录音iCloud路径")
+    audio_data_path_mac: Path = Field(default=Path(""), description="Mac端录音iCloud路径")
+    audio_data_path_win: Path = Field(default=Path(""), description="Windows端录音iCloud路径")
 
     # 大模型中枢 (LLM) API 配置
     llm_base_url: str = Field(default="https://api.deepseek.com", description="大模型 API Base URL")
@@ -48,7 +52,7 @@ class Settings(BaseSettings):
     ]
 
     model_config = SettingsConfigDict(
-        env_file=str(PROJECT_ROOT / ".env"),  
+        env_file=str(BASE_DIR / ".env"),  
         env_file_encoding='utf-8',
         extra='ignore' 
     )
@@ -74,6 +78,14 @@ class Settings(BaseSettings):
             return self.audio_data_path_win
         else:
             raise RuntimeError(f"不受支持的操作系统: {os_name}。")
+    @property
+    def resolved_log_dir(self) -> Path:
+        if self.log_dir.is_absolute():
+            return self.log_dir
+        return self.base_dir / self.log_dir
 
-# 暴露单例实例供全局调用
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+settings = get_settings()

@@ -1,39 +1,68 @@
 import sys
+from collections.abc import Callable
 from pathlib import Path
+
 from loguru import logger
 
-def setup_logger(log_dir: Path, log_level: str = "INFO"):
-    """
-    系统日志初始化函数。
-    必须由入口程序(如 app.py)在启动时显式调用。
-    
-    :param log_dir: 日志存放的绝对路径，由调用方传入，实现彻底解耦
-    :param log_level: 控制台输出的日志级别
-    """
-    log_dir.mkdir(parents=True, exist_ok=True)
+from backend.config.settings import settings
 
-    # 移除默认配置
+
+def setup_logger(
+    log_dir: Path | None = None,
+    log_level: str | None = None,
+    log_file_name: str = "system_{time:YYYY-MM-DD}.log",
+) -> Path:
+    """
+    配置控制台日志和文件日志。
+
+    返回实际使用的日志目录。
+    """
+    target_dir = log_dir or settings.resolved_log_dir
+    target_level = log_level or settings.log_level
+    target_dir.mkdir(parents=True, exist_ok=True)
+
     logger.remove()
 
-    # 1. 控制台输出
     logger.add(
-        sys.stdout, 
-        level=log_level, 
-        colorize=True, 
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        sys.stdout,
+        level=target_level,
+        colorize=True,
+        format=(
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{line}</cyan> - "
+            "<level>{message}</level>"
+        ),
     )
 
-    # 2. 文件输出 (保留 30 天，午夜轮转)
     logger.add(
-        log_dir / "reborn_{time:YYYY-MM-DD}.log", 
-        rotation="00:00", 
-        retention="30 days", 
-        level="DEBUG",  # 文件里永远存最全的 DEBUG 信息，方便溯源
-        encoding="utf-8",
-        enqueue=True    # 开启异步写入，防阻塞
+        target_dir / log_file_name,
+        rotation="00:00",
+        retention="30 days",
+        level=target_level,
+        enqueue=True,
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{line} - {message}",
     )
 
-    logger.success("🚀 Loguru 日志系统引导完成！")
+    return target_dir
 
-# 导出原始的 logger 和初始化函数
-__all__ = ["logger", "setup_logger"]
+
+def add_custom_file(
+    file_name: str,
+    log_dir: Path | None = None,
+    level: str = "INFO",
+    filter_rule: str | Callable | None = None,
+) -> int:
+    """
+    运行时添加一个额外的文件日志输出，并返回对应的 handler id。
+    """
+    target_dir = log_dir or settings.resolved_log_dir
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    handler_id = logger.add(
+        target_dir / file_name,
+        level=level,
+        rotation="10 MB",
+        filter=filter_rule,
+    )
+    return handler_id

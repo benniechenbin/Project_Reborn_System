@@ -8,34 +8,22 @@ def init_system():
     负责：初始化日志、创建所有必须的物理挂载目录、环境预检
     此函数必须在程序的绝对起点被调用！
     """
-    # 1. 点火：日志系统引导
-    # 获取项目根目录
-    project_root = Path(__file__).resolve().parent.parent.parent
-    log_dir = project_root / "logs"
-    
-    # 初始化 Loguru 日志中心
-    setup_logger(log_dir=log_dir, log_level="INFO")
+    log_dir = setup_logger(log_dir=settings.resolved_log_dir)
 
     logger.info("="*50)
-    logger.info("🚀 Project Reborn 引擎正在执行点火序列...")
-
-    # 2. 预检：创建核心物理目录 (如果缺失)
-    sqlite_dir = Path(settings.db_path).parent
-    vector_dir = Path(settings.vector_db_path)
-    local_models_dir = project_root / "data" / "local_models"
+    logger.info("🚀 Project Reborn 引擎正在执行点火序列...")  
 
     paths_to_create = [
         log_dir,
-        sqlite_dir,
-        vector_dir,
-        local_models_dir
+        settings.models_dir,
+        settings.db_path.parent,
+        settings.vector_db_path
     ]
     
     for p in paths_to_create:        
-        if not p.exists():
-            p.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"📁 已创建系统目录: {p}")
-
+        p.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"📁 挂载系统目录: {p}")
+        
     # 3. 预检：系统状态播报
     try:
         active_obsidian = settings.active_obsidian_path
