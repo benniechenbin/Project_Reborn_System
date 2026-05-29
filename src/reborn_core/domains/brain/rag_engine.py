@@ -5,9 +5,9 @@ from datetime import datetime
 
 from .llm_router import LLMRouter
 from .prompts import AVATAR_RAG_FRAMEWORK
-from backend.config import settings
-from backend.memory.vector_store import QdrantDBProvider
-from backend.observability import logger
+from reborn_core.core.config import settings
+from reborn_core.domains.memory.vector_store import QdrantDBProvider
+from reborn_core.core.logger import logger
 
 class RAGEngine:
     def __init__(self):

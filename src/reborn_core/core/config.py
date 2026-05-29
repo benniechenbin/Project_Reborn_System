@@ -4,7 +4,12 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+def find_project_root(current_path: Path, markers: tuple = ("pyproject.toml", ".git")) -> Path:   
+    for parent in [current_path] + list(current_path.parents):
+        if any((parent / marker).exists() for marker in markers):
+            return parent    
+    return current_path.parent # 兜底
+BASE_DIR = find_project_root(Path(__file__).resolve())
 LOCAL_MODELS_DIR = BASE_DIR / "data" / "local_models"
 
 class Settings(BaseSettings):

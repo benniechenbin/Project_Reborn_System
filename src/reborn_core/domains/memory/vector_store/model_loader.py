@@ -2,8 +2,8 @@ import os
 import functools
 from pathlib import Path
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from backend.config import settings
-from backend.observability import logger
+from reborn_core.core.config import settings
+from reborn_core.core.logger import logger
 
 @functools.lru_cache(maxsize=1)
 def load_embedding_model():

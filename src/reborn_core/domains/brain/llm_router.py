@@ -1,7 +1,7 @@
 import time
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from backend.config import settings
-from backend.observability import logger
+from reborn_core.core.config import settings
+from reborn_core.core.logger import logger
 from openai import OpenAI
 
 class LLMRouter:

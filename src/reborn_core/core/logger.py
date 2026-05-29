@@ -4,7 +4,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from backend.config.settings import settings
+from reborn_core.core.config import settings
 
 
 def setup_logger(

@@ -7,11 +7,10 @@ from datetime import datetime
 
 # 🚨 动态路径处理：确保 Streamlit 能在重构后的结构中找到所有模块
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(current_dir)
-sys.path.append(project_root)
+sys.path.append(os.path.join(current_dir, "src"))
 
-from backend.core import init_system
-from backend.brain import (
+from src.reborn_core.core.bootstrap import init_system
+from src.reborn_core.domains.brain import (
     CREATOR_INTERVIEW_PROMPT,
     IDENTITY_CONSOLIDATION_PROMPT,
     LLMRouter,
@@ -19,9 +18,9 @@ from backend.brain import (
     STORY_INTERVIEW_PROMPT,
     STTEngine,
 )
-from backend.memory import MemoryWriter
-from backend.memory.relational import DBManager
-from backend.services import InterviewService
+from src.reborn_core.domains.memory import MemoryWriter
+from src.reborn_core.domains.memory.relational import DBManager
+from src.reborn_core.domains.services import InterviewService
 from scripts.run_sync import execute_full_sync
 
 if "system_bootstrapped" not in st.session_state:

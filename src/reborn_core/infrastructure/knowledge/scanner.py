@@ -1,7 +1,7 @@
 import os
 import wave
 from pathlib import Path
-from backend.observability import logger
+from reborn_core.core.logger import logger
 
 class AssetScanner:
     def __init__(self, obsidian_path, audio_path):

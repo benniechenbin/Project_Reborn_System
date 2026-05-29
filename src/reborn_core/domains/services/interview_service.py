@@ -1,6 +1,6 @@
 import pandas as pd
-from backend.observability import logger
-from backend.brain import (
+from reborn_core.core.logger import logger
+from reborn_core.domains.brain import (
     IDENTITY_CONSOLIDATION_PROMPT,
     MEMORY_EXTRACTION_PROMPT,
     STORY_EXTRACTION_PROMPT,

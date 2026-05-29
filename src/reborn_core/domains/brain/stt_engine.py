@@ -1,8 +1,8 @@
 import os
 import tempfile
 from funasr import AutoModel
-from backend.config import settings
-from backend.observability import logger
+from reborn_core.core.config import settings
+from reborn_core.core.logger import logger
 
 settings.models_dir.mkdir(parents=True, exist_ok=True)
 os.environ["MODELSCOPE_CACHE"] = str(settings.models_dir)

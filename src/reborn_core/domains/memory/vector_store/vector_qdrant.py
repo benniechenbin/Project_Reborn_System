@@ -12,10 +12,10 @@ from rank_bm25 import BM25Okapi
 from pathlib import Path
 
 # ✅ 修复 1：正确的函数级导入
-from backend.config import settings
-from backend.memory.vector_store.base import BaseVectorDB
-from backend.memory.vector_store.model_loader import load_embedding_model, load_reranker_model
-from backend.observability import logger
+from reborn_core.core.config import settings
+from reborn_core.domains.memory.vector_store.base import BaseVectorDB
+from reborn_core.domains.memory.vector_store.model_loader import load_embedding_model, load_reranker_model
+from reborn_core.core.logger import logger
 
 # ==========================================
 # 1. 核心转接头：本地向量模型适配器 

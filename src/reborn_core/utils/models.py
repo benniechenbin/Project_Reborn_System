@@ -2,7 +2,7 @@ import os
 import functools
 from pathlib import Path
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from backend.observability import logger
+from reborn_core.core.logger import logger
 
 def load_embedding_model(model_name: str = "BAAI/bge-small-zh-v1.5"):
     """加载 Embedding 模型：优先本地，缺失时自动下载"""
@@ -19,7 +19,7 @@ def load_embedding_model(model_name: str = "BAAI/bge-small-zh-v1.5"):
 def load_reranker_model():
     """加载重排序模型 (支持本地固化)"""
     # 这里的路径改为 Project Reborn 内部的存储路径
-    local_model_path = Path("backend/models/bge-reranker-base")
+    local_model_path = Path("src/reborn_core/infrastructure/models/bge-reranker-base")
 
     if local_model_path.exists():
         logger.info(f"📦 发现本地 Reranker 模型，执行断网加载")

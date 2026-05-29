@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
-from backend.config import settings
-from backend.observability import logger
+from reborn_core.core.config import settings
+from reborn_core.core.logger import logger
 
 class DBManager:
     def __init__(self):

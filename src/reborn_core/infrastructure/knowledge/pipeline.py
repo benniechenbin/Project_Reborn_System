@@ -2,8 +2,8 @@ import re
 import os
 from pathlib import Path
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from backend.config import settings
-from backend.observability import logger
+from reborn_core.core.config import settings
+from reborn_core.core.logger import logger
 
 def parse_frontmatter(content: str) -> dict:
     """提取 YAML 标签"""

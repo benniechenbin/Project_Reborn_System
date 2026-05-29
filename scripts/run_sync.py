@@ -3,17 +3,18 @@ import sys
 from datetime import datetime
 
 # 动态路径处理 (置顶)
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(project_root)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+sys.path.append(os.path.join(project_root, "src"))
 
-# from backend.core.bootstrap import init_system
+# from reborn_core.core.bootstrap import init_system
 # init_system()
 
-from backend.config import settings
-from backend.knowledge_base import AssetScanner, load_processed_knowledge
-from backend.memory.relational import DBManager
-from backend.memory.vector_store import QdrantDBProvider
-from backend.observability import logger
+from src.reborn_core.core.config import settings
+from src.reborn_core.infrastructure.knowledge import AssetScanner, load_processed_knowledge
+from src.reborn_core.domains.memory.relational import DBManager
+from src.reborn_core.domains.memory.vector_store import QdrantDBProvider
+from src.reborn_core.core.logger import logger
 
 def fetch_real_metrics():
     """从硬盘获取真实的统计数据（保持原样）"""

@@ -1,6 +1,6 @@
 from pathlib import Path
-from backend.config import settings
-from backend.observability import logger, setup_logger
+from reborn_core.core.config import settings
+from reborn_core.core.logger import logger, setup_logger
 
 def init_system():
     """
