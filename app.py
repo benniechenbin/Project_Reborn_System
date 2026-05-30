@@ -18,9 +18,9 @@ from src.reborn_core.domains.brain import (
     STORY_INTERVIEW_PROMPT,
     STTEngine,
 )
-from src.reborn_core.domains.memory import MemoryWriter
-from src.reborn_core.domains.memory.relational import DBManager
-from src.reborn_core.domains.services import InterviewService
+from reborn_core.domains.memory import MemoryWriter
+from reborn_core.domains.memory.relational import DBManager
+from reborn_core.domains.services import InterviewService
 from scripts.run_sync import execute_full_sync
 
 if "system_bootstrapped" not in st.session_state:

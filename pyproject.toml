@@ -1,0 +1,15 @@
+[build-system]
+# 声明使用 setuptools 作为底层构建工具
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reborn"
+version = "0.1.0"
+description = "Project Reborn - Digital Immortality System"
+# 你的依赖库目前还在 requirements.txt 或 conda 里管理，这里留空即可
+dependencies = [] 
+
+# 💡 这就是解决你导入痛点的终极魔法：告诉 Python 去 src 目录下找包
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -8,7 +8,8 @@ def find_project_root(current_path: Path, markers: tuple = ("pyproject.toml", ".
     for parent in [current_path] + list(current_path.parents):
         if any((parent / marker).exists() for marker in markers):
             return parent    
-    return current_path.parent # 兜底
+    return current_path.parent 
+    
 BASE_DIR = find_project_root(Path(__file__).resolve())
 LOCAL_MODELS_DIR = BASE_DIR / "data" / "local_models"
 
