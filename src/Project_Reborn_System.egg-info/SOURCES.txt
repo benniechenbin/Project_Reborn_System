@@ -1,9 +1,9 @@
 README.md
 pyproject.toml
-src/reborn.egg-info/PKG-INFO
-src/reborn.egg-info/SOURCES.txt
-src/reborn.egg-info/dependency_links.txt
-src/reborn.egg-info/top_level.txt
+src/Project_Reborn_System.egg-info/PKG-INFO
+src/Project_Reborn_System.egg-info/SOURCES.txt
+src/Project_Reborn_System.egg-info/dependency_links.txt
+src/Project_Reborn_System.egg-info/top_level.txt
 src/reborn_core/__init__.py
 src/reborn_core/__main__.py
 src/reborn_core/core/__init__.py
