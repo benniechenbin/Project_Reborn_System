@@ -16,6 +16,8 @@ LOCAL_MODELS_DIR = BASE_DIR / "data" / "local_models"
 class Settings(BaseSettings):
     """全局系统配置中心 (纯净版：无副作用，无外部依赖)"""
     base_dir: Path = Field(default=BASE_DIR, description="Project Reborn 项目根目录")
+    app_name: str = Field(default="Project Reborn", description="Project Reborn 应用名称")
+    app_version: str = Field(default="0.1.0", description="Project Reborn 应用版本")
 
     log_dir: Path = Path("logs")
     log_level: str = "DEBUG"

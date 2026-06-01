@@ -1,6 +1,7 @@
 from pathlib import Path
 from reborn_core.core.config import settings
 from reborn_core.core.logger import logger, setup_logger
+from reborn_core.core.banner import show_banner
 
 def init_system():
     """
@@ -8,6 +9,7 @@ def init_system():
     负责：初始化日志、创建所有必须的物理挂载目录、环境预检
     此函数必须在程序的绝对起点被调用！
     """
+    show_banner(text=settings.app_name, font="slant")
     log_dir = setup_logger(log_dir=settings.resolved_log_dir)
 
     logger.info("="*50)
