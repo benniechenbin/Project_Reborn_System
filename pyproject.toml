@@ -4,7 +4,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "reborn"
+name = "Project_Reborn_System"
 version = "0.1.0"
 description = "Project Reborn - Digital Immortality System"
 # 你的依赖库目前还在 requirements.txt 或 conda 里管理，这里留空即可
