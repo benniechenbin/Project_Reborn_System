@@ -1,12 +1,22 @@
 repos:
-  # 1. 官方基础钩子：专门负责清理尾部空格和多余空行
+  # 1. 本地环境变量同步脚本
+  - repo: local
+    hooks:
+      - id: generate-env-example
+        name: Generate .env.example from .env
+        entry: python scripts/generate_env_example.py
+        language: python
+        always_run: true
+        pass_filenames: false
+
+  # 2. 官方基础钩子：专门负责清理尾部空格和多余空行
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
 
-  # 2. Ruff：极速代码格式化与规范修复
+  # 3. Ruff：极速代码格式化与规范修复
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.15
     hooks:
@@ -14,7 +24,7 @@ repos:
         args: [ --fix ]
       - id: ruff-format
 
-  # 3. MyPy：静态类型检查
+  # 4. MyPy：静态类型检查
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v2.1.0
     hooks:
@@ -28,13 +38,3 @@ repos:
           "--warn-unreachable"
         ]
         files: ^src/
-
-  # 4. 你的本地环境变量同步脚本
-  - repo: local
-    hooks:
-      - id: generate-env-example
-        name: Generate .env.example from .env
-        entry: python scripts/generate_env_example.py
-        language: python
-        always_run: true
-        pass_filenames: false
