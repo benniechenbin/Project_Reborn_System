@@ -1,15 +1,25 @@
 [build-system]
-# 声明使用 setuptools 作为底层构建工具
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "Project_Reborn_System"
 version = "0.1.0"
 description = "Project Reborn - Digital Immortality System"
-# 你的依赖库目前还在 requirements.txt 或 conda 里管理，这里留空即可
-dependencies = [] 
-
-# 💡 这就是解决你导入痛点的终极魔法：告诉 Python 去 src 目录下找包
-[tool.setuptools.packages.find]
-where = ["src"]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "loguru>=0.7.2",
+    "pydantic-settings>=2.2.1",
+    "pyfiglet>=0.8.1",
+]
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.0",
+]# 💡 这就是解决你导入痛点的终极魔法：告诉 Python 去 src 目录下找包
+[tool.hatch.build.targets.wheel]
+packages = ["src/app"]
