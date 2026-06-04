@@ -1,6 +1,8 @@
 from cryptography.fernet import Fernet
+import pytest
 
 from reborn_core.config import LegacyActivationMode
+from reborn_core.core.exceptions import ConfigurationError
 from reborn_core.domains.memory.relational import DBManager
 from reborn_core.infrastructure.backup import BackupService
 from reborn_core.runtime import BackgroundTaskRunner, TaskStatus
@@ -36,6 +38,16 @@ def test_encrypted_backup_and_recovery_drill(test_settings):
     assert result["verified"] is True
     assert result["encrypted"] is True
     assert result["sqlite_integrity"] == "ok"
+
+
+def test_invalid_backup_key_has_actionable_error(test_settings):
+    settings = test_settings.model_copy(
+        update={"backup_encryption_key": "invalid-key", "backup_require_encryption": True}
+    )
+    service = BackupService(settings, DBManager(app_settings=settings), LocalOwnerAccessPolicy())
+
+    with pytest.raises(ConfigurationError, match="完整的 44 个字符"):
+        service.create_backup()
 
 
 def test_legacy_activation_requires_complete_evidence(test_settings):

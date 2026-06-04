@@ -1,10 +1,12 @@
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from cryptography.fernet import Fernet
 
 from reborn_core.application import IdentitySnapshotStatus
+from reborn_core.core.exceptions import RebornError
 from reborn_core.lifecycle import lifespan
 
 
@@ -36,36 +38,44 @@ def main(argv: list[str] | None = None) -> int:
         print(Fernet.generate_key().decode("ascii"))
         return 0
 
-    with lifespan(show_startup_banner=False) as app:
-        container = app.container
-        if args.command == "check":
-            print("Project Reborn lifecycle check passed")
-        elif args.command == "sync":
-            task_id = container.task_runner.submit("memory_sync", container.run_sync)
-            print(container.task_runner.result(task_id).as_dict())
-        elif args.command == "backup":
-            task_id = container.task_runner.submit("encrypted_backup", container.run_backup)
-            print(container.task_runner.result(task_id))
-        elif args.command == "verify-backup":
-            print(json.dumps(container.backup_service.verify_backup(args.path), ensure_ascii=False))
-        elif args.command == "recovery-drill":
-            print(
-                json.dumps(
-                    container.backup_service.run_recovery_drill(args.path), ensure_ascii=False
+    try:
+        with lifespan(show_startup_banner=False) as app:
+            container = app.container
+            if args.command == "check":
+                print("Project Reborn lifecycle check passed")
+            elif args.command == "sync":
+                task_id = container.task_runner.submit("memory_sync", container.run_sync)
+                print(container.task_runner.result(task_id).as_dict())
+            elif args.command == "backup":
+                task_id = container.task_runner.submit("encrypted_backup", container.run_backup)
+                print(container.task_runner.result(task_id))
+            elif args.command == "verify-backup":
+                print(
+                    json.dumps(
+                        container.backup_service.verify_backup(args.path), ensure_ascii=False
+                    )
                 )
-            )
-        elif args.command == "identity-list":
-            snapshots = container.db_manager.list_identity_snapshots(
-                IdentitySnapshotStatus.PENDING_REVIEW
-            )
-            for snapshot in snapshots:
-                print(snapshot.snapshot_id, snapshot.created_at, ",".join(snapshot.source_ids))
-        elif args.command == "identity-approve":
-            print(container.identity_governance_service.approve(args.snapshot_id, args.note))
-        elif args.command == "identity-reject":
-            print(container.identity_governance_service.reject(args.snapshot_id, args.note))
-        elif args.command == "legacy-status":
-            print(container.legacy_activation_policy.evaluate())
+            elif args.command == "recovery-drill":
+                print(
+                    json.dumps(
+                        container.backup_service.run_recovery_drill(args.path), ensure_ascii=False
+                    )
+                )
+            elif args.command == "identity-list":
+                snapshots = container.db_manager.list_identity_snapshots(
+                    IdentitySnapshotStatus.PENDING_REVIEW
+                )
+                for snapshot in snapshots:
+                    print(snapshot.snapshot_id, snapshot.created_at, ",".join(snapshot.source_ids))
+            elif args.command == "identity-approve":
+                print(container.identity_governance_service.approve(args.snapshot_id, args.note))
+            elif args.command == "identity-reject":
+                print(container.identity_governance_service.reject(args.snapshot_id, args.note))
+            elif args.command == "legacy-status":
+                print(container.legacy_activation_policy.evaluate())
+    except RebornError as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 2
     return 0
 
 

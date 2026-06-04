@@ -13,6 +13,7 @@ from typing import Protocol
 from cryptography.fernet import Fernet, InvalidToken
 
 from reborn_core.config import Settings
+from reborn_core.core.exceptions import ConfigurationError
 from reborn_core.security import AccessAction, AccessContext
 from reborn_core.security.access import AccessPolicy
 
@@ -46,7 +47,7 @@ class BackupService:
         context = context or AccessContext()
         self.access_policy.require(AccessAction.BACKUP, "digital-estate", context)
         backup_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}_{uuid.uuid4().hex[:8]}"
-        key = self._encryption_key()
+        cipher = self._encryption_cipher()
         self.settings.resolved_backup_dir.mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory(prefix="reborn-backup-") as temp:
@@ -54,8 +55,8 @@ class BackupService:
             self._snapshot_sqlite(db_snapshot)
             archive_bytes = self._build_archive(backup_id, db_snapshot)
 
-        encrypted = key is not None
-        final_bytes = Fernet(key).encrypt(archive_bytes) if key else archive_bytes
+        encrypted = cipher is not None
+        final_bytes = cipher.encrypt(archive_bytes) if cipher else archive_bytes
         suffix = ".zip.fernet" if encrypted else ".zip"
         destination = self.settings.resolved_backup_dir / f"reborn_{backup_id}{suffix}"
         temp_destination = destination.with_name(f".{destination.name}.tmp")
@@ -127,10 +128,10 @@ class BackupService:
         payload = path.read_bytes()
         if not path.name.endswith(".fernet"):
             return payload
-        key = self._encryption_key(required=True)
-        assert key is not None
+        cipher = self._encryption_cipher(required=True)
+        assert cipher is not None
         try:
-            return Fernet(key).decrypt(payload)
+            return cipher.decrypt(payload)
         except InvalidToken as exc:
             raise ValueError("Backup decryption failed") from exc
 
@@ -186,17 +187,24 @@ class BackupService:
             target.close()
             source.close()
 
-    def _encryption_key(self, required: bool = False) -> bytes | None:
+    def _encryption_cipher(self, required: bool = False) -> Fernet | None:
         secret = self.settings.backup_encryption_key
         if secret is None:
             if required or self.settings.backup_require_encryption:
-                raise ValueError(
-                    "BACKUP_ENCRYPTION_KEY is required. Generate a Fernet key and store it "
-                    "outside the project before creating backups."
+                raise ConfigurationError(
+                    "缺少 BACKUP_ENCRYPTION_KEY。请运行 `uv run reborn generate-encryption-key`，"
+                    "并将完整输出原样填入 .env。"
                 )
             return None
         value = secret.get_secret_value() if hasattr(secret, "get_secret_value") else str(secret)
-        return value.encode("ascii")
+        try:
+            return Fernet(value.encode("ascii"))
+        except (UnicodeEncodeError, ValueError):
+            raise ConfigurationError(
+                "BACKUP_ENCRYPTION_KEY 格式无效。请重新运行 "
+                "`uv run reborn generate-encryption-key`，并将完整的 44 个字符原样填入 .env，"
+                "不要增删字符。"
+            ) from None
 
 
 def _sha256_bytes(content: bytes) -> str:

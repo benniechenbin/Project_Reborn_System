@@ -22,6 +22,8 @@ def setup_logger(
         sys.stdout,
         level=target_level,
         colorize=True,
+        backtrace=False,
+        diagnose=False,
         format=(
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "
@@ -35,6 +37,8 @@ def setup_logger(
         retention="30 days",
         level=target_level,
         enqueue=True,
+        backtrace=False,
+        diagnose=False,
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{line} - {message}",
     )
     return target_dir
@@ -58,4 +62,6 @@ def add_custom_file(
         level=level,
         rotation="10 MB",
         filter=filter_rule,
+        backtrace=False,
+        diagnose=False,
     )

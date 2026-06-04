@@ -9,6 +9,7 @@ from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
+from reborn_core.core.exceptions import RebornError
 from reborn_core.observability import logger
 
 
@@ -113,6 +114,10 @@ class BackgroundTaskRunner:
                 result_json=json.dumps(_jsonable(result), ensure_ascii=False),
             )
             return result
+        except RebornError as exc:
+            logger.error("Background task {} failed: {}", task_id, exc)
+            self.repository.update_task(task_id, TaskStatus.FAILED, error=str(exc))
+            raise
         except Exception as exc:
             logger.exception("Background task {} failed", task_id)
             self.repository.update_task(task_id, TaskStatus.FAILED, error=str(exc))
