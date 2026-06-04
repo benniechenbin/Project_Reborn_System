@@ -1,48 +1,44 @@
-import pytest
 from datetime import datetime
-from unittest.mock import patch
-from backend.brain.rag_engine import RAGEngine
 
-def test_calculate_child_age_and_tone_child(mock_settings, mock_vector_db, mock_llm_router):
-    # 设置生日为 4 年前
-    mock_settings.child_birthday = "2022-01-01"
-    
-    with patch("backend.brain.rag_engine.datetime") as mock_date:
-        # Mock 当前时间为 2026-05-29
-        mock_date.now.return_value = datetime(2026, 5, 29)
-        mock_date.strptime = datetime.strptime
-        
-        engine = RAGEngine()
-        tone_info = engine._calculate_child_age_and_tone()
-        
-        assert "4 岁" in tone_info
-        assert "温柔、带有童话色彩" in tone_info
-        assert "明明" in tone_info
+import pytest
 
-def test_calculate_child_age_and_tone_teen(mock_settings, mock_vector_db, mock_llm_router):
-    # 设置生日为 15 年前
-    mock_settings.child_birthday = "2011-01-01"
-    
-    with patch("backend.brain.rag_engine.datetime") as mock_date:
-        mock_date.now.return_value = datetime(2026, 5, 29)
-        mock_date.strptime = datetime.strptime
-        
-        engine = RAGEngine()
-        tone_info = engine._calculate_child_age_and_tone()
-        
-        assert "15 岁" in tone_info
-        assert "极客幽默" in tone_info
+from reborn_core.domains.brain.rag_engine import RAGEngine
 
-def test_calculate_child_age_and_tone_adult(mock_settings, mock_vector_db, mock_llm_router):
-    # 设置生日为 25 年前
-    mock_settings.child_birthday = "2001-01-01"
-    
-    with patch("backend.brain.rag_engine.datetime") as mock_date:
-        mock_date.now.return_value = datetime(2026, 5, 29)
-        mock_date.strptime = datetime.strptime
-        
-        engine = RAGEngine()
-        tone_info = engine._calculate_child_age_and_tone()
-        
-        assert "25 岁" in tone_info
-        assert "成年人之间深沉、平等" in tone_info
+
+class StubLLM:
+    def generate_response(self, messages, temperature=0.7):
+        return "stub"
+
+
+class StubRetriever:
+    def search(self, query, top_k=5):
+        return []
+
+
+@pytest.mark.parametrize(
+    ("birthday", "expected_age", "expected_tone"),
+    [
+        ("2022-01-01", "4 岁", "温柔、带有童话色彩"),
+        ("2011-01-01", "15 岁", "极客幽默"),
+        ("2001-01-01", "25 岁", "成年人之间深沉、平等"),
+    ],
+)
+def test_calculate_child_age_and_tone(
+    test_settings,
+    birthday,
+    expected_age,
+    expected_tone,
+):
+    settings = test_settings.model_copy(update={"child_birthday": birthday})
+    engine = RAGEngine(
+        app_settings=settings,
+        llm_router=StubLLM(),
+        vector_db=StubRetriever(),
+        clock=lambda: datetime(2026, 5, 29),
+    )
+
+    tone_info = engine._calculate_child_age_and_tone()
+
+    assert expected_age in tone_info
+    assert expected_tone in tone_info
+    assert "明明" in tone_info

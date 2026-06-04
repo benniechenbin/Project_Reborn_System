@@ -1,314 +1,272 @@
-import streamlit as st
+import difflib
+import json
+from typing import Any
+
 import pandas as pd
-import os
-import sys
+import streamlit as st
 from audio_recorder_streamlit import audio_recorder
-from datetime import datetime
 
-# 🚨 动态路径处理：确保 Streamlit 能在重构后的结构中找到所有模块
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(current_dir, "src"))
+from reborn_core.application import IdentitySnapshotStatus, InterviewMode
+from reborn_core.domains.brain.prompts import CREATOR_INTERVIEW_PROMPT, STORY_INTERVIEW_PROMPT
+from reborn_core.lifecycle import build_app
+from reborn_core.observability import logger
+from reborn_core.runtime import TaskStatus
 
-from src.reborn_core.core.bootstrap import init_system
-from src.reborn_core.domains.brain import (
-    CREATOR_INTERVIEW_PROMPT,
-    IDENTITY_CONSOLIDATION_PROMPT,
-    LLMRouter,
-    RAGEngine,
-    STORY_INTERVIEW_PROMPT,
-    STTEngine,
-)
-from reborn_core.domains.memory import MemoryWriter
-from reborn_core.domains.memory.relational import DBManager
-from reborn_core.domains.services import InterviewService
-from scripts.run_sync import execute_full_sync
+st.set_page_config(page_title="Project Reborn", layout="wide", initial_sidebar_state="expanded")
 
-if "system_bootstrapped" not in st.session_state:
-    init_system()
-    st.session_state.system_bootstrapped = True
 
-# ==========================================
-# 1. 页面全局配置
-# ==========================================
-st.set_page_config(
-    page_title="Project Reborn | 中控台",
-    page_icon="🌌",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+@st.cache_resource
+def get_reborn_app():
+    return build_app().start(show_startup_banner=False)
 
-# 初始化 Session State，用于持久化聊天记录
-# A. 初始化底层基础设施
-if "llm_router" not in st.session_state:
-    st.session_state.llm_router = LLMRouter()
-    
-if "memory_writer" not in st.session_state:       
-    st.session_state.memory_writer = MemoryWriter()
 
-# B. 初始化聊天记录状态
+app = get_reborn_app()
+container = app.container
+
 if "creator_chat" not in st.session_state:
-    st.session_state.creator_chat = [{"role": "assistant", "content": "你好，造物主。我是你的灵魂采访员。今天你想聊聊你在工作上的处事原则，还是对孩子的教育理念？"}]
-    
+    st.session_state.creator_chat = [
+        {"role": "assistant", "content": "你好。今天想记录一段故事，还是聊聊你的价值观？"}
+    ]
 if "sandbox_chat" not in st.session_state:
-    st.session_state.sandbox_chat = [{"role": "assistant", "content": "哈喽呀！我是爸爸的数字分身，你今天在幼儿园开心吗？"}]
+    st.session_state.sandbox_chat = [
+        {"role": "assistant", "content": "你好，我是依据爸爸留下的资料构建的数字陪伴者。"}
+    ]
 
-# C. 初始化业务服务层 (现在安全了，因为底层设施已经准备好了)
-if "interview_service" not in st.session_state:
-    st.session_state.interview_service = InterviewService(
-        st.session_state.llm_router, 
-        st.session_state.memory_writer
-    )
 
-# ==========================================
-# 2. 数据获取逻辑
-# ==========================================
-@st.cache_data(ttl=5)
-def load_sync_history():
-    db = DBManager()
+def submit_task(state_key: str, kind: str, operation, *args: Any) -> None:
+    st.session_state[state_key] = container.task_runner.submit(kind, operation, *args)
+
+
+def task_result(state_key: str, label: str) -> Any | None:
+    task_id = st.session_state.get(state_key)
+    if not task_id:
+        return None
+    task = container.task_runner.get_task(task_id)
+    if task is None:
+        st.warning(f"{label}任务记录不存在")
+        return None
+    if task.status in {TaskStatus.QUEUED, TaskStatus.RUNNING}:
+        st.info(f"{label}正在后台执行，任务 ID：`{task_id}`")
+        st.button("刷新任务状态", key=f"refresh_{state_key}")
+        return None
+    if task.status is TaskStatus.FAILED:
+        st.error(f"{label}失败：{task.error}")
+        return None
     try:
-        with db.get_connection() as conn:
-            df = pd.read_sql_query("SELECT * FROM sync_history ORDER BY sync_time ASC", conn)
-            if not df.empty:
-                df['sync_time'] = pd.to_datetime(df['sync_time'])
-        return df
-    except Exception as e:
+        return container.task_runner.result(task_id)
+    except LookupError:
+        return json.loads(task.result_json) if task.result_json else None
+
+
+@st.cache_data(ttl=5)
+def load_sync_history() -> pd.DataFrame:
+    try:
+        with container.db_manager.get_connection() as conn:
+            return pd.read_sql_query("SELECT * FROM sync_history ORDER BY sync_time ASC", conn)
+    except Exception:
+        logger.exception("Could not load sync history")
         return pd.DataFrame()
 
-# ==========================================
-# 3. 核心视图组件
-# ==========================================
 
-def render_dashboard():
-    """视图 1：资产同步与监控大屏"""
-    st.title("📊 资产同步与监控")
-    st.markdown("##### 数字生命底层数据摄入状态")
-    st.divider()
+def render_dashboard() -> None:
+    st.title("资产同步与监控")
+    active = container.retrieval_generations.active_generation_id()
+    st.caption(f"当前检索代次：`{active or '尚未建立'}`")
+    if st.button("提交全量同步", type="primary"):
+        submit_task("sync_task", "memory_sync", container.run_sync)
+        st.rerun()
+    result = task_result("sync_task", "记忆同步")
+    if result is not None:
+        st.success("新检索代次已构建并原子切换")
+        st.json(result.as_dict() if hasattr(result, "as_dict") else result)
 
-    df = load_sync_history()
+    history = load_sync_history()
+    if history.empty:
+        st.info("还没有同步记录。")
+        return
+    latest = history.iloc[-1]
+    cols = st.columns(3)
+    cols[0].metric("音频总时长（分钟）", f"{latest['audio_duration']:.1f}")
+    cols[1].metric("记忆笔记", int(latest["notes_count"]))
+    cols[2].metric("知识库字符数", int(latest["word_count"]))
+    st.dataframe(history, width="stretch")
 
-    if df.empty:
-        st.info("📭 目前大脑中还没有记忆快照，请点击左侧的摄入按钮。")
-    else:
-        latest_record = df.iloc[-1]
-        prev_record = df.iloc[-2] if len(df) > 1 else latest_record
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("🎙️ 语音资产总长 (分)", f"{latest_record['audio_duration']:.1f}", 
-                      f"{latest_record['audio_duration'] - prev_record['audio_duration']:.1f}" if len(df)>1 else None)
-        with col2:
-            st.metric("📝 核心记忆节点 (篇)", int(latest_record['notes_count']), 
-                      int(latest_record['notes_count'] - prev_record['notes_count']) if len(df)>1 else None)
-        with col3:
-            st.metric("🧠 知识库总词汇 (字)", int(latest_record['word_count']), 
-                      int(latest_record['word_count'] - prev_record['word_count']) if len(df)>1 else None)
-
-        st.divider()
-        st.subheader("📈 摄入轨迹 (Growth Trend)")
-        chart_data = df.set_index('sync_time')
-        chart_col1, chart_col2 = st.columns(2)
-        with chart_col1:
-            st.caption("语音语料积累曲线")
-            st.area_chart(chart_data['audio_duration'], color="#1f77b4")
-        with chart_col2:
-            st.caption("记忆节点扩展曲线")
-            st.area_chart(chart_data['notes_count'], color="#ff7f0e")
-
-def render_creator_studio():
-    """视图 2：灵魂采访室 (双模式切换)"""
-    # 1. 在侧边栏增加模式选择器
-    with st.sidebar:
-        st.markdown("---")
-        st.markdown("### 🎯 当前采访目标")
-        interview_mode = st.radio(
-            "你想聊什么内容？",
-            ["💡 提炼价值观 (ROM)", "📖 记录往事 (RAM)"],
-            help="模式切换后，AI 会调整提问风格。提炼时会根据模式存入不同文件夹。"
-        )
-        
-        # 模式切换提醒：如果切换模式，建议重置聊天
-        if st.button("🆕 开启新话题", help="清空当前对话记录"):
-            st.session_state.creator_chat = [{"role": "assistant", "content": "好的，我已经准备好了。我们开始吧！"}]
-            st.rerun()
-    # 2. 动态确定当前使用的 System Prompt
-    current_system_prompt = (
-        CREATOR_INTERVIEW_PROMPT if interview_mode == "💡 提炼价值观 (ROM)" 
-        else STORY_INTERVIEW_PROMPT
+def render_creator() -> None:
+    st.title("灵魂采访室")
+    mode_label = st.radio("采访目标", ["价值观", "人生故事"], horizontal=True)
+    mode = InterviewMode.CORE_VALUES if mode_label == "价值观" else InterviewMode.LIFE_STORY
+    system_prompt = (
+        CREATOR_INTERVIEW_PROMPT if mode is InterviewMode.CORE_VALUES else STORY_INTERVIEW_PROMPT
     )
 
-    st.title("🧠 灵魂采访室")
-    st.caption(f"当前模式：{interview_mode}")
-    st.divider()
+    for message in st.session_state.creator_chat:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    # 3. 渲染聊天记录 (保持原有逻辑)
-    for msg in st.session_state.creator_chat:
-        if msg["role"] != "system":
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-
-    # 4. 聊天输入处理
-    if prompt := st.chat_input("分享你的想法或故事细节..."):
+    if prompt := st.chat_input("分享你的想法或故事细节"):
         st.session_state.creator_chat.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        master_identity = st.session_state.memory_writer.read_master_identity()
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    f"{system_prompt['content']}\n\n"
+                    f"Approved identity context:\n{container.memory_writer.read_master_identity()}"
+                ),
+            },
+            *st.session_state.creator_chat,
+        ]
+        submit_task("creator_chat_task", "creator_chat", container.generate_chat, messages)
+        st.rerun()
 
-        dynamic_system_prompt = {
-            "role": "system",
-            "content": f"{current_system_prompt['content']}\n\n【已知全局背景信息（请务必牢记）】：\n{master_identity}"
-        }
-        # 拼接上下文，使用当前模式的 System Prompt
-        messages = [dynamic_system_prompt] + [m for m in st.session_state.creator_chat if m["role"] != "system"]
-        with st.chat_message("assistant"):
-            with st.spinner("正在倾听..."):
-                response = st.session_state.llm_router.generate_response(messages)
-                st.markdown(response)
-        st.session_state.creator_chat.append({"role": "assistant", "content": response})
+    chat_response = task_result("creator_chat_task", "采访回复")
+    chat_task = st.session_state.get("creator_chat_task")
+    if chat_response and st.session_state.get("consumed_chat_task") != chat_task:
+        st.session_state.creator_chat.append({"role": "assistant", "content": chat_response})
+        st.session_state.consumed_chat_task = chat_task
+        st.rerun()
 
-    # 5. 侧边栏：提炼与保存控制台
-    with st.sidebar:
-        st.markdown("---")
-        st.markdown("### 🧬 记忆提炼")
-        memory_title = st.text_input("记忆标题", placeholder="例如：丽水的水牛")
-        
-        if st.button("💾 提取并同步至 Obsidian", type="primary", use_container_width=True):
-            if len(st.session_state.creator_chat) < 3:
-                st.warning("⚠️ 内容太少，再多聊几句吧。")
-            else:
-                with st.spinner("AI 正在深度提炼记忆..."):
-                    # 🚀 1. 调用封装好的业务逻辑提炼记忆
-                    success, result = st.session_state.interview_service.process_and_save_interview(
-                        chat_history=st.session_state.creator_chat,
-                        interview_mode=interview_mode,
-                        custom_title=memory_title
-                    )
-                    
-                    if success:
-                        st.success("✅ 记忆碎片已存入 Obsidian！")
-                        with st.expander("查看本次提炼的笔记"):
-                            st.markdown(result)
-                            
-                        # 🚀 2. 只有记忆保存成功后，才触发身份核进化！(修复缩进和变量)
-                        with st.spinner("AI 正在将新记忆融合进全局身份核 (捕获语言指纹)..."):
-                            old_identity = st.session_state.memory_writer.read_master_identity()
-                            consolidation_msgs = [
-                                IDENTITY_CONSOLIDATION_PROMPT,
-                                # 【修复点】：把 insight 改成 result
-                                {"role": "user", "content": f"旧身份核：\n{old_identity}\n\n新记忆碎片：\n{result}"}
-                            ]
-                            # 调用 LLM 进行合并
-                            updated_identity = st.session_state.llm_router.generate_response(consolidation_msgs)
-                            
-                            # 覆盖写入 Master Identity
-                            if st.session_state.memory_writer.save_master_identity(updated_identity):
-                                st.toast("✅ 语言指纹已捕获，身份核同步进化！", icon="🧬")
-                    else:
-                        st.error(f"❌ 记忆提炼失败：{result}")
-                        st.info("建议检查网络连接或后端日志。")
-def render_avatar_sandbox():
-    """视图 3：陪伴沙盒 (测试分身语气)"""
-    st.title("👶 陪伴沙盒 (Alpha)")
-    st.caption("模拟孩子与分身的交互。后续将接入 RAG 记忆检索，使回复更真实。")
-    st.divider()
+    title = st.text_input("记忆标题")
+    if st.button("提交提炼并生成待审身份快照", type="primary"):
+        if len(st.session_state.creator_chat) < 3:
+            st.warning("内容还太少，再多聊几句。")
+        else:
+            submit_task(
+                "interview_task",
+                "interview_extraction",
+                container.run_interview,
+                list(st.session_state.creator_chat),
+                mode,
+                title or None,
+            )
+            st.rerun()
+    result = task_result("interview_task", "记忆提炼")
+    if result is not None:
+        snapshot_id = getattr(result, "identity_snapshot_id", None) or result.get(
+            "identity_snapshot_id"
+        )
+        st.success(f"记忆已保存，身份快照 `{snapshot_id}` 等待人工确认。")
 
-    if "rag_engine" not in st.session_state:
-        with st.spinner("正在加载层级记忆模型 (ROM/RAM)..."):
-            st.session_state.rag_engine = RAGEngine()
 
-    for msg in st.session_state.sandbox_chat:
-        avatar = "👶" if msg["role"] == "user" else "👨‍💻"
-        with st.chat_message(msg["role"], avatar=avatar):
-            st.markdown(msg["content"])
-
-    if prompt := st.chat_input("跟爸爸的分身聊天..."):
-        st.session_state.sandbox_chat.append({"role": "user", "content": prompt})
-        with st.chat_message("user", avatar="👶"):
-            st.markdown(prompt)
-        
-        # 暂时使用基础提示词，未来在此注入 RAG 检索结果
-        with st.chat_message("assistant", avatar="👨‍💻"):
-            with st.spinner("爸爸正在回忆..."):               
-                response, references = st.session_state.rag_engine.generate_avatar_response(
-                    prompt, 
-                    st.session_state.sandbox_chat[:-1] 
-                )
-                st.markdown(response)
-                if references:
-                    with st.expander("🔍 看看爸爸回想起了哪段记忆？"):
-                        for i, doc in enumerate(references): 
-                            source_name = os.path.basename(doc.metadata.get('source', '未知笔记'))
-                            st.caption(f"来源 {i+1}: {source_name}")
-                            st.write(doc.page_content)
-        st.session_state.sandbox_chat.append({"role": "assistant", "content": response})
-
-# ==========================================
-# 4. 侧边栏路由与全局控制
-# ==========================================
-with st.sidebar:
-    st.header("🌌 Reborn 核心枢纽")
-    st.divider()
-    view_mode = st.radio("功能模块:", options=["📊 资产同步与监控", "🧠 灵魂采访室", "💬 陪伴沙盒(测试)"])
-    
-    st.divider()
-    st.markdown("### 🕳️ 意识流树洞 (随时倾诉)")
-    st.caption("点击麦克风，录下你的只言片语。AI 将在后台默默倾听并提炼入库。")
-    
-    # 渲染录音组件
-    audio_bytes = audio_recorder(
-        text="点击录音 / 点击停止",
-        recording_color="#e84118",
-        neutral_color="#353b48",
-        icon_name="microphone",
-        icon_size="2x"
-    )
-    if audio_bytes:
-        st.success("✅ 音频捕获成功！(大小: {:.2f} KB)".format(len(audio_bytes) / 1024))
-        
-        if st.button("🚀 将这段语音丢进树洞"):
-            with st.spinner("正在倾听你的声音... (Whisper 解析中)"):
-                
-                # 1. 实例化引擎并执行听写
-                stt = STTEngine()
-                transcribed_text = stt.transcribe_audio_bytes(audio_bytes)
-                
-                if transcribed_text:
-                    st.info(f"🗣️ **你的意识流:**\n\n {transcribed_text}")
-                    
-                    # ==========================================
-                    # 🚀 任务三核心：AI 提炼与 Obsidian 静默入库
-                    # ==========================================
-                    with st.spinner("🧠 正在唤醒大模型提炼灵感，并写入 Obsidian..."):
-                        # 1. 把你的“碎碎念”包装成单轮对话格式，喂给服务层
-                        treehole_context = [{"role": "user", "content": f"【树洞语音速记】\n{transcribed_text}"}]
-                        
-                        # 2. 调用现有的业务逻辑进行处理 (当做 RAM 日常记忆处理，让 AI 自动起标题)
-                        success, result = st.session_state.interview_service.process_and_save_interview(
-                            chat_history=treehole_context,
-                            interview_mode="📖 记录往事 (RAM)", 
-                            custom_title="" 
+def render_identity_review() -> None:
+    st.title("身份快照审批")
+    pending = container.identity_governance_service.list_pending()
+    if not pending:
+        st.info("目前没有待审批的身份快照。")
+        return
+    for snapshot in pending:
+        with st.expander(f"{snapshot.created_at} · {snapshot.snapshot_id}"):
+            st.caption(
+                f"模型：{snapshot.model.provider}/{snapshot.model.model_name} · "
+                f"提示词：{snapshot.prompt.prompt_id}@{snapshot.prompt.version}"
+            )
+            st.write("来源：", ", ".join(snapshot.source_ids))
+            if snapshot.parent_snapshot_id:
+                parent = container.db_manager.get_identity_snapshot(snapshot.parent_snapshot_id)
+                if parent:
+                    diff = "".join(
+                        difflib.unified_diff(
+                            parent.content.splitlines(keepends=True),
+                            snapshot.content.splitlines(keepends=True),
+                            fromfile=parent.snapshot_id,
+                            tofile=snapshot.snapshot_id,
                         )
-                        
-                        # 3. 结果反馈
-                        if success:
-                            st.toast("✅ 树洞记忆已永久封存！", icon="💾")
-                            st.success("🎉 记忆闭环已打通！")
-                            with st.expander("👀 查看 AI 提炼的 Obsidian 笔记卡片"):
-                                st.markdown(result)
-                        else:
-                            st.error(f"❌ 封存失败，请检查网络或日志：{result}")
-                else:
-                    st.warning("🤫 好像没听到声音，或者 VAD 把背景音过滤掉了。再试一次？")
-
-    st.divider()
-    
-    if view_mode == "📊 资产同步与监控":
-        if st.button("🚀 一键同步记忆 (Sync)", use_container_width=True, type="primary"):
-            with st.spinner("正在解析 Obsidian 并更新向量库..."):
-                execute_full_sync()
-                st.success("同步成功！")
+                    )
+                    st.code(diff or "内容无变化", language="diff")
+            st.markdown(snapshot.content)
+            note = st.text_input("审核备注", key=f"note_{snapshot.snapshot_id}")
+            approve, reject = st.columns(2)
+            if approve.button("批准并设为当前身份", key=f"approve_{snapshot.snapshot_id}"):
+                container.identity_governance_service.approve(snapshot.snapshot_id, note or None)
+                st.rerun()
+            if reject.button("拒绝", key=f"reject_{snapshot.snapshot_id}"):
+                container.identity_governance_service.reject(snapshot.snapshot_id, note or None)
                 st.rerun()
 
-# 根据路由渲染页面
-if view_mode == "📊 资产同步与监控": render_dashboard()
-elif view_mode == "🧠 灵魂采访室": render_creator_studio()
-elif view_mode == "💬 陪伴沙盒(测试)": render_avatar_sandbox()
+
+def render_voice() -> None:
+    st.title("语音速记")
+    audio_bytes = audio_recorder(text="点击录音 / 点击停止")
+    if audio_bytes and st.button("提交后台转写与提炼", type="primary"):
+        submit_task("voice_task", "voice_capture", container.process_voice_capture, audio_bytes)
+        st.rerun()
+    result = task_result("voice_task", "语音处理")
+    if result is not None:
+        transcript = result["transcript"] if isinstance(result, dict) else result["transcript"]
+        st.success("语音已转写，身份变化仍需人工审批。")
+        st.write(transcript)
+
+
+def render_sandbox() -> None:
+    st.title("数字陪伴测试")
+    st.caption("系统会明确说明这是数字分身，并只使用已批准身份与可追溯记忆。")
+    for message in st.session_state.sandbox_chat:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    if prompt := st.chat_input("开始对话"):
+        st.session_state.sandbox_chat.append({"role": "user", "content": prompt})
+        submit_task(
+            "avatar_task",
+            "avatar_response",
+            container.generate_avatar_response,
+            prompt,
+            list(st.session_state.sandbox_chat[:-1]),
+        )
+        st.rerun()
+    result = task_result("avatar_task", "陪伴回复")
+    task_id = st.session_state.get("avatar_task")
+    if result and st.session_state.get("consumed_avatar_task") != task_id:
+        response = result[0] if not isinstance(result, dict) else result.get("0", "")
+        st.session_state.sandbox_chat.append({"role": "assistant", "content": response})
+        st.session_state.consumed_avatar_task = task_id
+        st.rerun()
+
+
+def render_governance() -> None:
+    st.title("安全、备份与数字遗产治理")
+    legacy = container.legacy_activation_policy.evaluate()
+    st.write(
+        {
+            "access_policy": app.settings.access_policy_backend,
+            "legacy_mode": legacy.mode.value,
+            "legacy_active": legacy.active,
+            "legacy_reason": legacy.reason,
+            "backup_encryption_required": app.settings.backup_require_encryption,
+        }
+    )
+    if st.button("提交加密备份"):
+        submit_task("backup_task", "encrypted_backup", container.run_backup)
+        st.rerun()
+    backup_result = task_result("backup_task", "加密备份")
+    if backup_result:
+        st.success(f"备份已创建：{backup_result}")
+
+    backup_path = st.text_input("备份文件路径", placeholder=str(app.settings.resolved_backup_dir))
+    if st.button("提交恢复演练") and backup_path:
+        submit_task("drill_task", "recovery_drill", container.run_recovery_drill, backup_path)
+        st.rerun()
+    drill_result = task_result("drill_task", "恢复演练")
+    if drill_result:
+        st.success("恢复演练通过")
+        st.json(drill_result)
+
+
+with st.sidebar:
+    st.header("Project Reborn")
+    page = st.radio(
+        "功能",
+        ["资产同步", "灵魂采访", "身份审批", "语音速记", "陪伴测试", "治理"],
+    )
+    st.caption(f"生命周期：{'运行中' if app.started else '未启动'}")
+    st.caption(
+        f"待审身份：{len(container.db_manager.list_identity_snapshots(IdentitySnapshotStatus.PENDING_REVIEW))}"
+    )
+
+{
+    "资产同步": render_dashboard,
+    "灵魂采访": render_creator,
+    "身份审批": render_identity_review,
+    "语音速记": render_voice,
+    "陪伴测试": render_sandbox,
+    "治理": render_governance,
+}[page]()

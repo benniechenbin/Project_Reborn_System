@@ -1,6 +1,9 @@
-"""认知层：语音、大模型路由、RAG 与提示词。"""
+"""认知能力适配器与提示词。
 
-from .llm_router import LLMRouter
+重量级可选适配器采用惰性加载，因此导入提示词时不会下载模型，
+也不要求安装全部运行时可选依赖。
+"""
+
 from .prompts import (
     AVATAR_RAG_FRAMEWORK,
     CREATOR_INTERVIEW_PROMPT,
@@ -9,8 +12,6 @@ from .prompts import (
     STORY_EXTRACTION_PROMPT,
     STORY_INTERVIEW_PROMPT,
 )
-from .rag_engine import RAGEngine
-from .stt_engine import STTEngine
 
 __all__ = [
     "AVATAR_RAG_FRAMEWORK",
@@ -23,3 +24,19 @@ __all__ = [
     "STORY_EXTRACTION_PROMPT",
     "STORY_INTERVIEW_PROMPT",
 ]
+
+
+def __getattr__(name: str):
+    if name == "LLMRouter":
+        from .llm_router import LLMRouter
+
+        return LLMRouter
+    if name == "RAGEngine":
+        from .rag_engine import RAGEngine
+
+        return RAGEngine
+    if name == "STTEngine":
+        from .stt_engine import STTEngine
+
+        return STTEngine
+    raise AttributeError(name)

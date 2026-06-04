@@ -1,7 +1,15 @@
 .env
 __pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
 *.db
 logs/*.log
+logs/*.jsonl
 .DS_Store
 data/
 models/

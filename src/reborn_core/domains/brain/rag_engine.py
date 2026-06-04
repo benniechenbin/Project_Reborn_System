@@ -1,39 +1,57 @@
-
 import json
-from pathlib import Path
+from collections.abc import Callable
 from datetime import datetime
+from typing import Any
 
-from .llm_router import LLMRouter
 from .prompts import AVATAR_RAG_FRAMEWORK
-from reborn_core.core.config import settings
-from reborn_core.domains.memory.vector_store import QdrantDBProvider
-from reborn_core.core.logger import logger
+from reborn_core.application.ports import ChatModel, MemoryRetriever
+from reborn_core.config import Settings, get_settings
+from reborn_core.observability import logger
+
 
 class RAGEngine:
-    def __init__(self):
-        self.llm_router = LLMRouter()
-        self.vector_db = QdrantDBProvider()
-        # 确定记忆存储路径
-        try:
-            obsidian_root = Path(settings.active_obsidian_path) if settings.active_obsidian_path else Path("data/memories")
-        except Exception:
-            obsidian_root = Path("data/memories")
-            
+    def __init__(
+        self,
+        app_settings: Settings | None = None,
+        llm_router: ChatModel | None = None,
+        vector_db: MemoryRetriever | None = None,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        settings = app_settings or get_settings()
+        if llm_router is None:
+            from .llm_router import LLMRouter
+
+            llm_router = LLMRouter(app_settings=settings)
+        if vector_db is None:
+            from reborn_core.domains.memory.vector_store import QdrantDBProvider
+
+            vector_db = QdrantDBProvider(app_settings=settings)
+
+        self.llm_router = llm_router
+        self.vector_db = vector_db
+        self.clock = clock or datetime.now
+        obsidian_root = settings.active_obsidian_path or (settings.base_dir / "data" / "memories")
+
         self.core_memories_path = obsidian_root / "02_Values"
         self.reflections_path = self.core_memories_path / "00_AI_Reflections"
-        
-        # 🚀 新增：盲区记录文件路径
-        self.gap_file = Path("data/memory_gaps.json")
+        self.gap_file = settings.base_dir / "data" / "memory_gaps.json"
 
-        self.child_name = settings.child_name
-        self.child_nickname = settings.child_nickname
-        self.child_gender = settings.child_gender
-        self.child_birthday = datetime.strptime(settings.child_birthday, "%Y-%m-%d")
+        (
+            self.child_name,
+            self.child_nickname,
+            self.child_gender,
+            child_birthday,
+        ) = settings.require_child_profile()
+        self.child_birthday = datetime.strptime(child_birthday, "%Y-%m-%d")
 
     def _calculate_child_age_and_tone(self) -> str:
         """🌟 核心动态逻辑：年龄感知与语气路由"""
-        now = datetime.now()
-        age = now.year - self.child_birthday.year - ((now.month, now.day) < (self.child_birthday.month, self.child_birthday.day))
+        now = self.clock()
+        age = (
+            now.year
+            - self.child_birthday.year
+            - ((now.month, now.day) < (self.child_birthday.month, self.child_birthday.day))
+        )
         pronoun = "他" if self.child_gender == "男" else "她"
         son_or_daughter = "儿子" if self.child_gender == "男" else "女儿"
         if age < 6:
@@ -45,28 +63,32 @@ class RAGEngine:
         else:
             tone = f"{self.child_nickname}现在已经是成年人了（大约 {age} 岁）。请使用成年人之间深沉、平等的对话方式，分享你的人生智慧和哲学思考。"
         return f"【动态感知】孩子大名：{self.child_name}，小名：{self.child_nickname}，性别：{self.child_gender}，当前年龄：{age} 岁。\n【强制语气约束】：{tone}"
-        
+
     def _get_level_1_rom(self) -> str:
-        persona_file = self.core_memories_path / "00_Master_Identity.md" 
+        persona_file = self.core_memories_path / "00_Master_Identity.md"
         directives_file = self.core_memories_path / "03_Prime_Directives.md"
         rom_content = ""
         if persona_file.exists():
-            rom_content += persona_file.read_text(encoding='utf-8') + "\n"
+            rom_content += persona_file.read_text(encoding="utf-8") + "\n"
         if directives_file.exists():
-            rom_content += "### 最高行为准则\n" + directives_file.read_text(encoding='utf-8')
-        now = datetime.now()
-        env_info = f"\n---\n当前现实时间：{now.strftime('%Y-%m-%d %H:%M')}，星期{now.weekday()+1}。"
+            rom_content += "### 最高行为准则\n" + directives_file.read_text(encoding="utf-8")
+        now = self.clock()
+        env_info = (
+            f"\n---\n当前现实时间：{now.strftime('%Y-%m-%d %H:%M')}，星期{now.weekday() + 1}。"
+        )
         age_routing_info = f"\n{self._calculate_child_age_and_tone()}"
         return rom_content + env_info + age_routing_info
 
     def _get_level_2_personality(self) -> str:
         if not self.reflections_path.exists():
             return "（近期性格稳定，暂无动态更新）"
-        files = sorted(self.reflections_path.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True)[:3]
+        files = sorted(
+            self.reflections_path.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True
+        )[:3]
         summaries = []
         for f in files:
             try:
-                content = f.read_text(encoding='utf-8')
+                content = f.read_text(encoding="utf-8")
                 summaries.append(f"【近期感悟】：{content}")
             except Exception as e:
                 logger.error(f"读取反思文件失败: {e}")
@@ -78,12 +100,12 @@ class RAGEngine:
             memories = self.vector_db.search(query, top_k=3)
             if not memories:
                 return "（此刻脑海中没有想起具体的往事细节）", -1.0, []
-            
+
             # 提取最高分数
             max_score = memories[0].metadata.get("rerank_score", 0.0)
             ram_text = "\n".join([f"- {doc.page_content}" for doc in memories])
-            
-            # 必须把 memories (即 references) 也返回，给前端用
+
+            # 必须同时返回 memories（即 references），供前端使用
             return ram_text, max_score, memories
         except Exception as e:
             logger.error(f"RAM 检索失败: {e}")
@@ -94,30 +116,35 @@ class RAGEngine:
         gap_entry = {
             "query": query,
             "score": score,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "timestamp": self.clock().strftime("%Y-%m-%d %H:%M:%S"),
         }
-        
+
         gaps = []
         if self.gap_file.exists():
             try:
-                with open(self.gap_file, 'r', encoding='utf-8') as f:
+                with open(self.gap_file, "r", encoding="utf-8") as f:
                     gaps = json.load(f)
             except Exception:
                 gaps = []
-        
+
         # 只保留最近 100 条记录
         gaps.append(gap_entry)
         gaps = gaps[-100:]
-        
-        with open(self.gap_file, 'w', encoding='utf-8') as f:
+
+        self.gap_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.gap_file, "w", encoding="utf-8") as f:
             json.dump(gaps, f, ensure_ascii=False, indent=2)
         logger.warning(f"🕵️ 发现记忆盲区，已记录查询: {query} (Score: {score})")
 
-    def generate_avatar_response(self, user_query: str, chat_history: list = None) -> tuple:
+    def generate_avatar_response(
+        self,
+        user_query: str,
+        chat_history: list[dict[str, str]] | None = None,
+    ) -> tuple[str, list[Any]]:
         """生成分身的最终回复"""
         l1 = self._get_level_1_rom()
         l2 = self._get_level_2_personality()
-        
+
         # 🚀 完美接住三个返回值
         l3_text, max_score, references = self._get_level_3_ram(user_query)
 
@@ -126,12 +153,10 @@ class RAGEngine:
             self._record_memory_gap(user_query, max_score)
 
         full_system_prompt = AVATAR_RAG_FRAMEWORK.format(
-            level_1_rom=l1,
-            level_2_personality=l2,
-            level_3_ram=l3_text
+            level_1_rom=l1, level_2_personality=l2, level_3_ram=l3_text
         )
 
-        messages = [{"role": "system", "content": full_system_prompt}]
+        messages: list[dict[str, str]] = [{"role": "system", "content": full_system_prompt}]
         if chat_history:
             history = [m for m in chat_history if m["role"] != "system"][-10:]
             messages.extend(history)
@@ -139,6 +164,6 @@ class RAGEngine:
 
         logger.info(f"🧠 分身正在思考... RAM 召回分值: {max_score}")
         response_text = self.llm_router.generate_response(messages)
-        
-        # 🚀 必须返回元组，满足 app.py 的解包需求
+
+        # 必须返回元组，以满足 app.py 的解包需求
         return response_text, references

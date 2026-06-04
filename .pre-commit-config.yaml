@@ -1,11 +1,11 @@
 repos:
-  # 1. 本地环境变量同步脚本
+  # 1. Settings 与环境变量示例同步检查
   - repo: local
     hooks:
       - id: generate-env-example
-        name: Generate .env.example from .env
-        entry: python scripts/generate_env_example.py
-        language: python
+        name: Check .env.example against Settings
+        entry: uv run python scripts/generate_env_example.py --check
+        language: system
         always_run: true
         pass_filenames: false
 
