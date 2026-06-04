@@ -22,9 +22,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: uv lock --check
-      - run: uv sync --extra dev --frozen
-      - run: uv run python scripts/generate_env_example.py --check
-      - run: uv run pytest
-      - run: uv run ruff check src tests scripts
-      - run: uv run mypy src scripts --ignore-missing-imports --check-untyped-defs --warn-unused-ignores --warn-unreachable
+      - run: uv sync --extra dev --extra llm --extra rag --frozen
+      - run: uv run --no-sync python scripts/generate_env_example.py --check
+      - run: uv run --no-sync pytest
+      - run: uv run --no-sync ruff check src tests scripts
+      - run: uv run --no-sync mypy src scripts --ignore-missing-imports --check-untyped-defs --warn-unused-ignores --warn-unreachable
       - run: uv build

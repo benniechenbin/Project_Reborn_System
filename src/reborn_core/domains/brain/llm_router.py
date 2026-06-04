@@ -1,13 +1,14 @@
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from reborn_core.application.models import ModelMetadata
-from reborn_core.utils.parsers import parse_think_tags
 from reborn_core.config import Settings, get_settings
 from reborn_core.observability import logger
+from reborn_core.utils.parsers import parse_think_tags
 
 
 class LLMRouter:
@@ -56,13 +57,19 @@ class LLMRouter:
         """
         try:
             logger.debug(f"正在向大模型发送请求，包含 {len(messages)} 条上下文...")
+            request_messages = cast(
+                list[ChatCompletionMessageParam],
+                [dict(message) for message in messages],
+            )
             response = self.client.chat.completions.create(
                 model=self.model_name,
-                messages=list(messages),
+                messages=request_messages,
                 temperature=temperature,
                 max_tokens=1500,
             )
             raw_text = response.choices[0].message.content
+            if not raw_text:
+                raise RuntimeError("大模型返回了空内容")
 
             parsed = parse_think_tags(raw_text)
             final_text = parsed["response"]

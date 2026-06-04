@@ -26,8 +26,10 @@ class Settings(BaseSettings):
     """经过校验的应用配置；导入模块时不会创建任何外部资源。"""
 
     base_dir: Path = Field(default=BASE_DIR, description="项目根目录")
+
     app_name: str = Field(default="Project Reborn", description="应用名称")
     app_version: str = Field(default="0.1.0", description="应用版本")
+    app_env: str = Field(default="dev", description="应用环境")
 
     log_dir: Path = Field(default=Path("logs"), description="日志目录")
     log_level: str = Field(default="DEBUG", description="日志级别")
