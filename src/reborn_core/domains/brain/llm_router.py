@@ -5,6 +5,7 @@ from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from reborn_core.application.models import ModelMetadata
+from reborn_core.utils.parsers import parse_think_tags
 from reborn_core.config import Settings, get_settings
 from reborn_core.observability import logger
 
@@ -61,7 +62,21 @@ class LLMRouter:
                 temperature=temperature,
                 max_tokens=1500,
             )
-            return response.choices[0].message.content or ""
+            raw_text = response.choices[0].message.content
+
+            parsed = parse_think_tags(raw_text)
+            final_text = parsed["response"]
+
+            if parsed["thought"]:
+                logger.debug(f"🧠 分身内部反思 (未泄露给用户): \n{parsed['thought']}")
+
+            forbidden_words = ["人工智能", "语言模型", "AI助理", "我是AI", "大语言模型"]
+            if any(word in final_text for word in forbidden_words):
+                logger.error(f"🚨 严重防火墙拦截！模型触发破壁词汇。被拦截原文: {final_text}")
+                # 触发终极降级兜底，死守身份底线
+                return "爸爸刚才走神了，你能再说一遍吗？"
+            return final_text
+
         except Exception as e:
             logger.warning(f"⚠️ 大模型 API 调用异常，准备重试: {e}")
             raise

@@ -23,7 +23,17 @@ def test_vector_db_workflow(test_settings, tmp_path):
 
     mock_encoder.encode.side_effect = mock_encode
     mock_reranker = MagicMock()
-    mock_reranker.predict.side_effect = lambda pairs: np.array([0.9] * len(pairs))
+
+    def mock_predict(pairs):
+        scores = []
+        for query, content in pairs:
+            if "诚实" in content:
+                scores.append(0.9)
+            else:
+                scores.append(0.1)
+        return np.array(scores)
+
+    mock_reranker.predict.side_effect = mock_predict
 
     db = QdrantDBProvider(
         app_settings=test_settings,
