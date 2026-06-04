@@ -30,8 +30,8 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 
 ### 正式边界
 
-- `reborn_core.config`：配置组件入口；`core.config` 仅作弃用兼容转发。
-- `reborn_core.observability`：日志及未来指标/追踪入口；`core.logger` 仅作兼容转发。
+- `reborn_core.config`：配置组件入口，配置实现统一放在该包内。
+- `reborn_core.observability`：日志及未来指标、追踪入口。
 - `reborn_core.lifecycle`：唯一拥有启动与关闭副作用的入口。
 - `reborn_core.container.Container`：惰性依赖装配，不在构造时加载模型。
 - `reborn_core.application`：访谈、同步和身份审批用例。
@@ -114,7 +114,11 @@ uv run reborn legacy-status
 ## 5. 下一阶段
 
 - 将 Streamlit 页面拆到 `interfaces/streamlit/`，并增加稳定 API。
+- 将夜间反思拆为独立应用用例，保存原始对话来源工件；只有稳定价值观候选才能进入身份审批流程。
+- 要求 RAG 通过容器显式注入活动检索代次，移除领域层直接创建固定 Qdrant 实例的备用路径。
+- 为检索代次构建增加跨进程锁与构建租约，避免 Streamlit、CLI 和未来独立 worker 并发切换代次。
 - 将进程内 worker 替换为可恢复的独立 worker/队列。
+- 将 `DBManager` 按身份、任务、同步、备份与审计仓储拆分，并使用独立版本化 migration runner。
 - 为 SourceArtifact 增加独立数据库记录、内容哈希、授权范围和敏感级别。
 - 增加开放导出格式、密钥轮换、真正的人工授权恢复操作手册。
 - 增加儿童安全回归测试、人格回归测试和提示词版本评估。

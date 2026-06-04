@@ -35,7 +35,7 @@ rag = [
 ui = [
     "audio-recorder-streamlit>=0.0.10",
     "pandas>=2.0.0",
-    "streamlit>=1.32.0",
+    "streamlit>=1.37.0",
 ]
 voice = [
     "funasr>=1.0.0",

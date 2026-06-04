@@ -110,12 +110,8 @@ def test_router_strips_think_tags_and_preserves_response(test_settings):
     assert response == "过来，让爸爸抱抱。"
 
 
-# ---------------------------------------------------------
-# 👇 测试三：AI 破壁词汇的实时拦截
-# ---------------------------------------------------------
-def test_router_blocks_ai_identity_leak(test_settings):
-    """断言三：AI 破壁词汇的实时拦截 (进阶安全)"""
-    # 模拟大模型彻底翻车，说出了禁忌词
+def test_router_preserves_truthful_identity_disclosure(test_settings):
+    """断言三：路由器不能拦截诚实的数字分身身份说明"""
     fake_client = create_fake_openai_client(
         forced_reply="作为一个人工智能语言模型，我不能代替你真正的父亲陪伴你。"
     )
@@ -123,6 +119,5 @@ def test_router_blocks_ai_identity_leak(test_settings):
 
     response = router.generate_response([{"role": "user", "content": "你到底是谁？"}])
 
-    # 断言：系统必须触发了兜底机制，把含有“人工智能”的回复拦截掉
-    assert "人工智能" not in response
-    assert "爸爸刚才走神了" in response  # 假设这是你的兜底回复
+    assert "人工智能" in response
+    assert "不能代替你真正的父亲" in response

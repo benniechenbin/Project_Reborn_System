@@ -70,11 +70,7 @@ class LLMRouter:
             if parsed["thought"]:
                 logger.debug(f"🧠 分身内部反思 (未泄露给用户): \n{parsed['thought']}")
 
-            forbidden_words = ["人工智能", "语言模型", "AI助理", "我是AI", "大语言模型"]
-            if any(word in final_text for word in forbidden_words):
-                logger.error(f"🚨 严重防火墙拦截！模型触发破壁词汇。被拦截原文: {final_text}")
-                # 触发终极降级兜底，死守身份底线
-                return "爸爸刚才走神了，你能再说一遍吗？"
+            # 身份披露由系统提示词约束；不能拦截“人工智能”等词，否则会阻止分身诚实说明身份。
             return final_text
 
         except Exception as e:

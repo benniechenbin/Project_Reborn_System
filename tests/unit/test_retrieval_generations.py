@@ -59,3 +59,19 @@ def test_prune_failure_does_not_invalidate_activated_generation(tmp_path, monkey
     assert second != first
     assert manager.active_generation_id() == second
     assert manager.search("anything") == ["v2"]
+
+
+def test_each_generation_uses_an_isolated_index_path(tmp_path):
+    index_paths = []
+
+    def factory(path):
+        index_paths.append(path)
+        return FakeStore(path)
+
+    manager = RetrievalGenerationManager(tmp_path, factory, retention=3)
+    manager.build_and_activate(["v1"])
+    manager.build_and_activate(["v2"])
+
+    assert len(index_paths) == 2
+    assert index_paths[0] != index_paths[1]
+    assert all(path.name == "index" for path in index_paths)

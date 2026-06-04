@@ -60,14 +60,18 @@ class QdrantDBProvider(BaseVectorDB):
         self.collection_name = "reborn_memory"
 
         if not self.client.collection_exists(self.collection_name):
-            logger.info(f"🆕 发现是首次运行，正在创建 Qdrant 集合: {self.collection_name}")
+            logger.info(
+                "正在为新检索代次初始化 Qdrant 集合：{}，存储路径：{}",
+                self.collection_name,
+                self.vector_db_path,
+            )
             vector_size = len(self.encoder.encode("测试内容"))
 
             self.client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
-            logger.info("✅ 集合创建成功！")
+            logger.info("新检索代次的 Qdrant 集合初始化完成")
 
         self.vector_db = QdrantVectorStore(
             client=self.client,

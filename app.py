@@ -37,6 +37,22 @@ def submit_task(state_key: str, kind: str, operation, *args: Any) -> None:
     st.session_state[state_key] = container.task_runner.submit(kind, operation, *args)
 
 
+@st.fragment(run_every="1s")
+def render_running_task(state_key: str, label: str) -> None:
+    """自动轮询运行中的后台任务，并在任务结束后刷新完整页面。"""
+    task_id = st.session_state.get(state_key)
+    if not task_id:
+        return
+    task = container.task_runner.get_task(task_id)
+    if task is None:
+        st.warning(f"{label}任务记录不存在")
+        return
+    if task.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED}:
+        st.rerun()
+    st.info(f"{label}正在后台执行，任务 ID：`{task_id}`")
+    st.caption("任务完成后页面会自动更新。")
+
+
 def task_result(state_key: str, label: str) -> Any | None:
     task_id = st.session_state.get(state_key)
     if not task_id:
@@ -46,8 +62,7 @@ def task_result(state_key: str, label: str) -> Any | None:
         st.warning(f"{label}任务记录不存在")
         return None
     if task.status in {TaskStatus.QUEUED, TaskStatus.RUNNING}:
-        st.info(f"{label}正在后台执行，任务 ID：`{task_id}`")
-        st.button("刷新任务状态", key=f"refresh_{state_key}")
+        render_running_task(state_key, label)
         return None
     if task.status is TaskStatus.FAILED:
         st.error(f"{label}失败：{task.error}")
@@ -85,11 +100,46 @@ def render_dashboard() -> None:
         st.info("还没有同步记录。")
         return
     latest = history.iloc[-1]
+    previous = history.iloc[-2] if len(history) > 1 else latest
     cols = st.columns(3)
-    cols[0].metric("音频总时长（分钟）", f"{latest['audio_duration']:.1f}")
-    cols[1].metric("记忆笔记", int(latest["notes_count"]))
-    cols[2].metric("知识库字符数", int(latest["word_count"]))
-    st.dataframe(history, width="stretch")
+    cols[0].metric(
+        "音频总时长（分钟）",
+        f"{latest['audio_duration']:.1f}",
+        f"{latest['audio_duration'] - previous['audio_duration']:.1f}"
+        if len(history) > 1
+        else None,
+    )
+    cols[1].metric(
+        "记忆笔记",
+        int(latest["notes_count"]),
+        int(latest["notes_count"] - previous["notes_count"]) if len(history) > 1 else None,
+    )
+    cols[2].metric(
+        "知识库字符数",
+        int(latest["word_count"]),
+        int(latest["word_count"] - previous["word_count"]) if len(history) > 1 else None,
+    )
+
+    with st.expander("数据积累趋势与同步明细"):
+        chart_data = history.copy()
+        chart_data["sync_time"] = pd.to_datetime(
+            chart_data["sync_time"],
+            format="mixed",
+            errors="coerce",
+            utc=True,
+        )
+        chart_data = chart_data.dropna(subset=["sync_time"]).set_index("sync_time")
+        if chart_data.empty:
+            st.info("同步历史时间格式无法解析，暂不显示趋势图。")
+        else:
+            audio_chart, notes_chart = st.columns(2)
+            with audio_chart:
+                st.caption("语音资产积累趋势")
+                st.area_chart(chart_data["audio_duration"], color="#1f77b4")
+            with notes_chart:
+                st.caption("记忆节点积累趋势")
+                st.area_chart(chart_data["notes_count"], color="#ff7f0e")
+        st.dataframe(history, width="stretch")
 
 
 def render_creator() -> None:
