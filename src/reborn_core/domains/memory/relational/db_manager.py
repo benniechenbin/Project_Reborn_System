@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -58,7 +58,7 @@ class DBManager:
         return conn
 
     @contextmanager
-    def transaction(self) -> Iterator[sqlite3.Connection]:
+    def transaction(self) -> Generator[sqlite3.Connection, None, None]:
         with self.get_connection() as conn:
             try:
                 conn.execute("BEGIN IMMEDIATE")

@@ -1,7 +1,7 @@
 import atexit
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Iterator
+from collections.abc import Generator
 
 from reborn_core.config import Settings, get_settings
 from reborn_core.container import Container
@@ -74,7 +74,7 @@ def build_app(app_settings: Settings | None = None) -> RebornApp:
 def lifespan(
     app_settings: Settings | None = None,
     show_startup_banner: bool = True,
-) -> Iterator[RebornApp]:
+) -> Generator[RebornApp, None, None]:
     app = build_app(app_settings).start(show_startup_banner=show_startup_banner)
     try:
         yield app
