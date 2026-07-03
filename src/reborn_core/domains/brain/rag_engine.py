@@ -3,9 +3,9 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from .prompts import AVATAR_RAG_FRAMEWORK
 from reborn_core.application.ports import ChatModel, MemoryRetriever
 from reborn_core.config import Settings, get_settings
+from reborn_core.domains.brain.prompt_registry import PromptRegistry, get_prompt_registry
 from reborn_core.observability import logger
 
 
@@ -15,6 +15,7 @@ class RAGEngine:
         app_settings: Settings | None = None,
         llm_router: ChatModel | None = None,
         vector_db: MemoryRetriever | None = None,
+        prompt_registry: PromptRegistry | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         settings = app_settings or get_settings()
@@ -29,6 +30,7 @@ class RAGEngine:
 
         self.llm_router = llm_router
         self.vector_db = vector_db
+        self.prompt_registry = prompt_registry or get_prompt_registry()
         self.clock = clock or datetime.now
         obsidian_root = settings.active_obsidian_path or (settings.base_dir / "data" / "memories")
 
@@ -37,11 +39,12 @@ class RAGEngine:
         self.gap_file = settings.base_dir / "data" / "memory_gaps.json"
 
         (
+            self.creator_name,
             self.child_name,
             self.child_nickname,
             self.child_gender,
             child_birthday,
-        ) = settings.require_child_profile()
+        ) = settings.require_avatar_profile()
         self.child_birthday = datetime.strptime(child_birthday, "%Y-%m-%d")
 
     def _calculate_child_age_and_tone(self) -> str:
@@ -52,8 +55,12 @@ class RAGEngine:
             - self.child_birthday.year
             - ((now.month, now.day) < (self.child_birthday.month, self.child_birthday.day))
         )
-        pronoun = "他" if self.child_gender == "男" else "她"
-        son_or_daughter = "儿子" if self.child_gender == "男" else "女儿"
+        if self.child_gender == "男":
+            pronoun, son_or_daughter = "他", "儿子"
+        elif self.child_gender == "女":
+            pronoun, son_or_daughter = "她", "女儿"
+        else:
+            raise ValueError(f"Unsupported child gender: {self.child_gender!r}")
         if age < 6:
             tone = f"{self.child_nickname}现在还很小（大约 {age} 岁）。你是{pronoun}的爸爸。请使用非常通俗、温柔、带有童话色彩的词汇。多用比喻，像讲故事一样跟{pronoun}说话，语气要充满父亲对{son_or_daughter}的宠溺与耐心。称呼{pronoun}时请使用小名'{self.child_nickname}'。"
         elif age < 13:
@@ -76,8 +83,7 @@ class RAGEngine:
         env_info = (
             f"\n---\n当前现实时间：{now.strftime('%Y-%m-%d %H:%M')}，星期{now.weekday() + 1}。"
         )
-        age_routing_info = f"\n{self._calculate_child_age_and_tone()}"
-        return rom_content + env_info + age_routing_info
+        return rom_content + env_info
 
     def _get_level_2_personality(self) -> str:
         if not self.reflections_path.exists():
@@ -152,9 +158,19 @@ class RAGEngine:
         if max_score < -0.8:
             self._record_memory_gap(user_query, max_score)
 
-        full_system_prompt = AVATAR_RAG_FRAMEWORK.format(
-            level_1_rom=l1, level_2_personality=l2, level_3_ram=l3_text
-        )
+        full_system_prompt = self.prompt_registry.render(
+            "avatar_rag_framework",
+            {
+                "creator_name": self.creator_name,
+                "child_name": self.child_name,
+                "child_nickname": self.child_nickname,
+                "child_gender": self.child_gender,
+                "child_age_tone": self._calculate_child_age_and_tone(),
+                "level_1_rom": l1,
+                "level_2_personality": l2,
+                "level_3_ram": l3_text,
+            },
+        ).content
 
         messages: list[dict[str, str]] = [{"role": "system", "content": full_system_prompt}]
         if chat_history:

@@ -7,7 +7,6 @@ import streamlit as st
 from audio_recorder_streamlit import audio_recorder
 
 from reborn_core.application import IdentitySnapshotStatus, InterviewMode
-from reborn_core.domains.brain.prompts import CREATOR_INTERVIEW_PROMPT, STORY_INTERVIEW_PROMPT
 from reborn_core.lifecycle import build_app
 from reborn_core.observability import logger
 from reborn_core.runtime import TaskStatus
@@ -146,8 +145,8 @@ def render_creator() -> None:
     st.title("灵魂采访室")
     mode_label = st.radio("采访目标", ["价值观", "人生故事"], horizontal=True)
     mode = InterviewMode.CORE_VALUES if mode_label == "价值观" else InterviewMode.LIFE_STORY
-    system_prompt = (
-        CREATOR_INTERVIEW_PROMPT if mode is InterviewMode.CORE_VALUES else STORY_INTERVIEW_PROMPT
+    system_prompt_id = (
+        "creator_interview" if mode is InterviewMode.CORE_VALUES else "story_interview"
     )
 
     for message in st.session_state.creator_chat:
@@ -156,6 +155,11 @@ def render_creator() -> None:
 
     if prompt := st.chat_input("分享你的想法或故事细节"):
         st.session_state.creator_chat.append({"role": "user", "content": prompt})
+        try:
+            system_prompt = container.render_builder_prompt_message(system_prompt_id)
+        except ValueError as exc:
+            st.error(str(exc))
+            return
         messages = [
             {
                 "role": "system",
@@ -242,7 +246,7 @@ def render_voice() -> None:
         st.rerun()
     result = task_result("voice_task", "语音处理")
     if result is not None:
-        transcript = result["transcript"] if isinstance(result, dict) else result["transcript"]
+        transcript = result["transcript"]
         st.success("语音已转写，身份变化仍需人工审批。")
         st.write(transcript)
 

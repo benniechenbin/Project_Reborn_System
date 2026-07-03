@@ -54,6 +54,12 @@ class Container:
         return LLMRouter(app_settings=self.settings)
 
     @cached_property
+    def prompt_registry(self):
+        from reborn_core.domains.brain.prompt_registry import get_prompt_registry
+
+        return get_prompt_registry()
+
+    @cached_property
     def memory_writer(self):
         from reborn_core.domains.memory.memory_writer import MemoryWriter
 
@@ -61,7 +67,13 @@ class Container:
 
     @cached_property
     def interview_service(self) -> InterviewService:
-        return InterviewService(self.llm_router, self.memory_writer, self.db_manager)
+        return InterviewService(
+            self.llm_router,
+            self.memory_writer,
+            self.db_manager,
+            app_settings=self.settings,
+            prompt_registry=self.prompt_registry,
+        )
 
     @cached_property
     def identity_governance_service(self) -> IdentityGovernanceService:
@@ -69,6 +81,9 @@ class Container:
             self.db_manager,
             self.memory_writer,
             self.access_policy,
+            llm_router_factory=lambda: self.llm_router,
+            app_settings=self.settings,
+            prompt_registry=self.prompt_registry,
         )
 
     @cached_property
@@ -154,6 +169,13 @@ class Container:
 
     def generate_chat(self, messages: list[dict[str, str]]) -> str:
         return self.llm_router.generate_response(messages)
+
+    def render_builder_prompt_message(self, prompt_id: str) -> dict[str, str]:
+        context = {
+            "creator_name": self.settings.creator_name,
+            "child_nickname": self.settings.child_nickname,
+        }
+        return self.prompt_registry.render_from_context(prompt_id, context).as_message()
 
     def generate_avatar_response(
         self,

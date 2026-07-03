@@ -81,11 +81,11 @@ class StubSnapshots:
         return reviewed
 
 
-def test_interview_creates_pending_identity_without_promoting_it():
+def test_interview_creates_pending_identity_without_promoting_it(test_settings):
     llm = StubLLM()
     memory = StubMemory()
     snapshots = StubSnapshots()
-    service = InterviewService(llm, memory, snapshots)
+    service = InterviewService(llm, memory, snapshots, app_settings=test_settings)
 
     result = service.process_interview(
         [{"role": "user", "content": "I want to record a journey."}],
@@ -101,12 +101,16 @@ def test_interview_creates_pending_identity_without_promoting_it():
     assert snapshot.source_ids == ("source/interview.md",)
     assert snapshot.model.model_name == "stub-model"
     assert snapshot.prompt.prompt_id == "identity_consolidation"
+    assert snapshot.prompt.version == "2026-07-03.v1"
+    assert snapshot.generation_params["extraction_prompt"]["prompt_id"] == "story_extraction"
 
 
-def test_identity_governance_promotes_only_after_human_approval():
+def test_identity_governance_promotes_only_after_human_approval(test_settings):
     memory = StubMemory()
     snapshots = StubSnapshots()
-    result = InterviewService(StubLLM(), memory, snapshots).process_interview(
+    result = InterviewService(
+        StubLLM(), memory, snapshots, app_settings=test_settings
+    ).process_interview(
         [{"role": "user", "content": "A story"}],
         InterviewMode.LIFE_STORY,
     )
@@ -118,6 +122,27 @@ def test_identity_governance_promotes_only_after_human_approval():
     assert reviewed.status is IdentitySnapshotStatus.APPROVED
     assert reviewed.active
     assert memory.identity == "pending identity"
+
+
+def test_nightly_reflection_uses_registry_prompt_metadata(test_settings):
+    llm = StubLLM()
+    memory = StubMemory()
+    snapshots = StubSnapshots()
+    service = IdentityGovernanceService(
+        snapshots,
+        memory,
+        LocalOwnerAccessPolicy(),
+        llm_router=llm,
+        app_settings=test_settings,
+    )
+
+    snapshot = service.run_nightly_reflection([{"role": "user", "content": "I like astronomy."}])
+
+    assert snapshot is not None
+    assert snapshot.status is IdentitySnapshotStatus.PENDING_REVIEW
+    assert snapshot.prompt.prompt_id == "nightly_reflection_system"
+    assert snapshot.prompt.version == "2026-07-03.v1"
+    assert len(snapshot.prompt.sha256) == 64
 
 
 @dataclass

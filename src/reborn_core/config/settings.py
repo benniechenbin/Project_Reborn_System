@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     app_name: str = Field(default="Project Reborn", description="应用名称")
     app_version: str = Field(default="0.1.0", description="应用版本")
     app_env: str = Field(default="dev", description="应用环境")
+    creator_name: str | None = Field(
+        default=None,
+        description="家长/数字人原型的真实姓名或指定称谓",
+    )
 
     log_dir: Path = Field(default=Path("logs"), description="日志目录")
     log_level: str = Field(default="DEBUG", description="日志级别")
@@ -168,6 +172,23 @@ class Settings(BaseSettings):
                 "Avatar sandbox requires CHILD_NAME, CHILD_NICKNAME, "
                 "CHILD_GENDER and CHILD_BIRTHDAY."
             )
+        return values  # type: ignore[return-value]
+
+    def require_avatar_profile(self) -> tuple[str, str, str, str, str]:
+        values = (
+            self.creator_name,
+            self.child_name,
+            self.child_nickname,
+            self.child_gender,
+            self.child_birthday,
+        )
+        if not all(values):
+            raise ValueError(
+                "Avatar sandbox requires CREATOR_NAME, CHILD_NAME, CHILD_NICKNAME, "
+                "CHILD_GENDER and CHILD_BIRTHDAY."
+            )
+        if self.child_gender not in {"男", "女"}:
+            raise ValueError("Avatar sandbox requires CHILD_GENDER to be '男' or '女'.")
         return values  # type: ignore[return-value]
 
     def _resolve_path(self, path: Path) -> Path:

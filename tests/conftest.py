@@ -10,6 +10,7 @@ def test_settings(tmp_path):
         base_dir=tmp_path,
         obsidian_vault_path_win=None,
         obsidian_vault_path_mac=None,
+        creator_name="张三",
         child_name="张小明",
         child_nickname="明明",
         child_gender="男",

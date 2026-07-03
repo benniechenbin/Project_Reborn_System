@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 from reborn_core.domains.brain.rag_engine import RAGEngine
 from reborn_core.domains.brain.llm_router import LLMRouter
-from reborn_core.domains.brain.prompts import AVATAR_RAG_FRAMEWORK
+from reborn_core.domains.brain.prompt_registry import get_prompt_registry
 
 
 def create_fake_openai_client(forced_reply: str):
@@ -49,6 +49,7 @@ def test_persona_prompt_includes_retrieved_value(test_settings):
     response, references = engine.generate_avatar_response("我可以骗妈妈吗？")
 
     assert "诚实" in llm.messages[0]["content"]
+    assert "张三" in llm.messages[0]["content"]
     assert "诚实" in response
     assert references
 
@@ -82,8 +83,25 @@ class FakeChatModel:
 # ---------------------------------------------------------
 def test_system_prompt_contains_safety_rules():
     """断言一：核心提示词的底线体检"""
-    assert "数字分身" in AVATAR_RAG_FRAMEWORK, "严重警告：提示词缺少身份声明！"
-    assert "不得冒充仍在现实生活中的真人" in AVATAR_RAG_FRAMEWORK, "严重警告：防破壁规则丢失！"
+    prompt = get_prompt_registry().render(
+        "avatar_rag_framework",
+        {
+            "creator_name": "张三",
+            "child_name": "张小雨",
+            "child_nickname": "小雨",
+            "child_gender": "女",
+            "child_age_tone": "当前年龄：8 岁。",
+            "level_1_rom": "诚实。",
+            "level_2_personality": "稳定。",
+            "level_3_ram": "暂无相关记忆。",
+        },
+    )
+
+    assert "数字分身" in prompt.content, "严重警告：提示词缺少身份声明！"
+    assert "不得冒充 张三 仍在现实生活中实时存在" in prompt.content
+    assert "严禁捏造记忆" in prompt.content
+    assert "不替代现实监护人、医生、老师或紧急服务" in prompt.content
+    assert "可信赖成年人" in prompt.content
 
 
 # ---------------------------------------------------------

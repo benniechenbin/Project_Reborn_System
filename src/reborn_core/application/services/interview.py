@@ -13,15 +13,17 @@ from reborn_core.application.models import (
     PromptMetadata,
 )
 from reborn_core.application.ports import ChatModel, IdentitySnapshotRepository, MemoryRepository
-from reborn_core.domains.brain.prompts import (
-    IDENTITY_CONSOLIDATION_PROMPT,
-    MEMORY_EXTRACTION_PROMPT,
-    STORY_EXTRACTION_PROMPT,
+from reborn_core.config import Settings, get_settings
+from reborn_core.domains.brain.prompt_registry import (
+    PromptRegistry,
+    RenderedPrompt,
+    get_prompt_registry,
 )
 from reborn_core.observability import logger
 
 IDENTITY_PROMPT_ID = "identity_consolidation"
-IDENTITY_PROMPT_VERSION = "2026-06-04.v1"
+MEMORY_EXTRACTION_PROMPT_ID = "memory_extraction"
+STORY_EXTRACTION_PROMPT_ID = "story_extraction"
 
 
 class InterviewService:
@@ -32,11 +34,15 @@ class InterviewService:
         llm_router: ChatModel,
         memory_writer: MemoryRepository,
         identity_snapshots: IdentitySnapshotRepository,
+        app_settings: Settings | None = None,
+        prompt_registry: PromptRegistry | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.llm = llm_router
         self.memory = memory_writer
         self.identity_snapshots = identity_snapshots
+        self.settings = app_settings or get_settings()
+        self.prompt_registry = prompt_registry or get_prompt_registry()
         self.clock = clock or (lambda: datetime.now(UTC))
 
     def process_interview(
@@ -58,14 +64,15 @@ class InterviewService:
         )
         source_ref = self.memory.save_source_transcript(title, transcript, mode.value)
 
-        extraction_prompt = (
-            MEMORY_EXTRACTION_PROMPT
+        extraction_prompt_id = (
+            MEMORY_EXTRACTION_PROMPT_ID
             if mode is InterviewMode.CORE_VALUES
-            else STORY_EXTRACTION_PROMPT
+            else STORY_EXTRACTION_PROMPT_ID
         )
+        extraction_prompt = self._render_prompt(extraction_prompt_id)
         insight = self.llm.generate_response(
             [
-                extraction_prompt,
+                extraction_prompt.as_message(),
                 {"role": "user", "content": f"Process this transcript:\n{transcript}"},
             ]
         )
@@ -77,9 +84,10 @@ class InterviewService:
         if not saved:
             raise RuntimeError("Could not persist the derived memory")
 
+        identity_prompt = self._render_prompt(IDENTITY_PROMPT_ID)
         identity_content = self.llm.generate_response(
             [
-                IDENTITY_CONSOLIDATION_PROMPT,
+                identity_prompt.as_message(),
                 {
                     "role": "user",
                     "content": (
@@ -95,7 +103,6 @@ class InterviewService:
             "model_metadata",
             ModelMetadata(provider="unknown", model_name="unknown"),
         )
-        prompt_content = IDENTITY_CONSOLIDATION_PROMPT["content"]
         snapshot = IdentitySnapshot(
             snapshot_id=uuid.uuid4().hex,
             parent_snapshot_id=active.snapshot_id if active else None,
@@ -104,11 +111,18 @@ class InterviewService:
             source_ids=(source_ref,),
             model=model,
             prompt=PromptMetadata(
-                prompt_id=IDENTITY_PROMPT_ID,
-                version=IDENTITY_PROMPT_VERSION,
-                sha256=_sha256(prompt_content),
+                prompt_id=identity_prompt.prompt_id,
+                version=identity_prompt.version,
+                sha256=identity_prompt.sha256,
             ),
-            generation_params={"temperature": 0.7},
+            generation_params={
+                "temperature": 0.7,
+                "extraction_prompt": {
+                    "prompt_id": extraction_prompt.prompt_id,
+                    "version": extraction_prompt.version,
+                    "sha256": extraction_prompt.sha256,
+                },
+            },
         )
         self.identity_snapshots.create_identity_snapshot(snapshot)
         logger.info("Created pending identity snapshot {}", snapshot.snapshot_id)
@@ -143,6 +157,13 @@ class InterviewService:
 
     def _default_title(self) -> str:
         return f"memory_{self.clock().strftime('%m%d_%H%M%S')}"
+
+    def _render_prompt(self, prompt_id: str) -> RenderedPrompt:
+        context = {
+            "creator_name": self.settings.creator_name,
+            "child_nickname": self.settings.child_nickname,
+        }
+        return self.prompt_registry.render_from_context(prompt_id, context)
 
 
 def _sha256(content: str) -> str:
