@@ -18,7 +18,7 @@ repos:
 
   # 3. Ruff：极速代码格式化与规范修复
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.15
+    rev: v0.15.20
     hooks:
       - id: ruff
         args: [ --fix ]

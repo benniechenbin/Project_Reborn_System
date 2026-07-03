@@ -1,16 +1,17 @@
 import difflib
 import pickle
-import jieba
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, List
+
+import jieba
+from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_qdrant import QdrantVectorStore
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
-from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
 from rank_bm25 import BM25Okapi
-from pathlib import Path
 
 # ✅ 修复 1：正确的函数级导入
 from reborn_core.config import Settings, get_settings
@@ -187,4 +188,6 @@ class QdrantDBProvider(BaseVectorDB):
         return unique_docs
 
     def health_check(self) -> bool:
-        return self.client.collection_exists(self.collection_name) and self.bm25_path.exists()
+        # bm25_path 是可选的加速索引，不是必要条件；
+        # 只要 Qdrant collection 存在，检索代次即为健康状态。
+        return self.client.collection_exists(self.collection_name)

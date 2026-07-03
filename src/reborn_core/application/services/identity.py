@@ -12,6 +12,7 @@ from reborn_core.application.models import (
 )
 from reborn_core.application.ports import (
     AccessPolicyPort,
+    ChatModel,
     IdentitySnapshotRepository,
     MemoryRepository,
 )
@@ -35,7 +36,7 @@ class IdentityGovernanceService:
         snapshots: IdentitySnapshotRepository,
         memory: MemoryRepository,
         access_policy: AccessPolicyPort,
-        llm_router=None,
+        llm_router: ChatModel | None = None,
         llm_router_factory: Callable[[], Any] | None = None,
         app_settings: Settings | None = None,
         prompt_registry: PromptRegistry | None = None,

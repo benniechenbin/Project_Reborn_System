@@ -270,7 +270,7 @@ def render_sandbox() -> None:
     result = task_result("avatar_task", "陪伴回复")
     task_id = st.session_state.get("avatar_task")
     if result and st.session_state.get("consumed_avatar_task") != task_id:
-        response = result[0] if not isinstance(result, dict) else result.get("0", "")
+        response = result[0] if isinstance(result, (tuple, list)) else str(result)
         st.session_state.sandbox_chat.append({"role": "assistant", "content": response})
         st.session_state.consumed_avatar_task = task_id
         st.rerun()
