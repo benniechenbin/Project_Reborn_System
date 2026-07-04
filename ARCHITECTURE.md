@@ -113,7 +113,7 @@ uv run reborn legacy-status
 
 ## 5. 下一阶段
 
-- 将 Streamlit 页面拆到 `interfaces/streamlit/`，并增加稳定 API。
+- 将 Streamlit 页面拆到 `interfaces/streamlit/`，并增加稳定 API。 
 - 将夜间反思拆为独立应用用例，保存原始对话来源工件；只有稳定价值观候选才能进入身份审批流程。
 - 要求 RAG 通过容器显式注入活动检索代次，移除领域层直接创建固定 Qdrant 实例的备用路径。
 - 为检索代次构建增加跨进程锁与构建租约，避免 Streamlit、CLI 和未来独立 worker 并发切换代次。

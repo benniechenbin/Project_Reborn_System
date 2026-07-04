@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 import reborn_core.config as config
 from scripts.generate_env_example import build_env_example
@@ -14,6 +15,12 @@ def test_env_example_uses_defaults_and_hides_secrets():
     assert "BACKUP_ENCRYPTION_KEY=\n" in content
     assert "BACKUP_REQUIRE_ENCRYPTION=true" in content
     assert "BASE_DIR=" not in content
+
+
+def test_checked_in_env_example_is_current():
+    env_example = Path(__file__).parents[2] / ".env.example"
+
+    assert env_example.read_text(encoding="utf-8") == build_env_example()
 
 
 def test_config_package_does_not_export_eager_settings_singleton():
