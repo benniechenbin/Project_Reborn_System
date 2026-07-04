@@ -43,7 +43,6 @@ class DBManager:
         settings = app_settings or get_settings()
         self.db_path = db_path or settings.resolved_db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.migrate()
 
     def get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(
@@ -54,6 +53,7 @@ class DBManager:
         )
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA busy_timeout = 30000")
         conn.execute("PRAGMA journal_mode = WAL")
         return conn
 
@@ -216,7 +216,8 @@ class DBManager:
                 ),
             )
         reviewed = self.get_identity_snapshot(snapshot_id)
-        assert reviewed is not None
+        if reviewed is None:
+            raise LookupError(f"Identity snapshot disappeared after review: {snapshot_id}")
         return reviewed
 
     def create_task(self, task: TaskRecord) -> None:

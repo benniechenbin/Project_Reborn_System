@@ -9,10 +9,15 @@ from reborn_core.runtime import BackgroundTaskRunner, TaskStatus
 from reborn_core.security import LegacyActivationPolicy, LocalOwnerAccessPolicy
 
 
+def migrated_db(settings):
+    db = DBManager(app_settings=settings)
+    db.migrate()
+    return db
+
+
 def test_background_task_status_is_persisted(test_settings):
-    db = DBManager(app_settings=test_settings)
+    db = migrated_db(test_settings)
     runner = BackgroundTaskRunner(db, max_workers=1)
-    runner.start()
     task_id = runner.submit("sum", lambda: 2 + 3)
 
     assert runner.result(task_id) == 5
@@ -25,7 +30,7 @@ def test_encrypted_backup_and_recovery_drill(test_settings):
     settings = test_settings.model_copy(
         update={"backup_encryption_key": key, "backup_require_encryption": True}
     )
-    db = DBManager(app_settings=settings)
+    db = migrated_db(settings)
     vault = settings.base_dir / "data" / "memories"
     vault.mkdir(parents=True)
     (vault / "source.md").write_text("source material", encoding="utf-8")
@@ -44,7 +49,7 @@ def test_invalid_backup_key_has_actionable_error(test_settings):
     settings = test_settings.model_copy(
         update={"backup_encryption_key": "invalid-key", "backup_require_encryption": True}
     )
-    service = BackupService(settings, DBManager(app_settings=settings), LocalOwnerAccessPolicy())
+    service = BackupService(settings, migrated_db(settings), LocalOwnerAccessPolicy())
 
     with pytest.raises(ConfigurationError, match="完整的 44 个字符"):
         service.create_backup()

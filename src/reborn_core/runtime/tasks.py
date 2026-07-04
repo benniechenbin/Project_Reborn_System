@@ -70,7 +70,6 @@ class BackgroundTaskRunner:
             executor.shutdown(wait=wait, cancel_futures=False)
 
     def submit(self, kind: str, operation: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
-        self.start()
         task_id = uuid.uuid4().hex
         now = datetime.now(UTC).isoformat()
         self.repository.create_task(
@@ -82,9 +81,16 @@ class BackgroundTaskRunner:
                 updated_at=now,
             )
         )
-        assert self._executor is not None
-        future = self._executor.submit(self._run, task_id, operation, args, kwargs)
         with self._lock:
+            if self._executor is None:
+                self._executor = ThreadPoolExecutor(
+                    max_workers=self.max_workers,
+                    thread_name_prefix="reborn-worker",
+                )
+            executor = self._executor
+            if executor is None:
+                raise RuntimeError("BackgroundTaskRunner has not been started")
+            future = executor.submit(self._run, task_id, operation, args, kwargs)
             self._futures[task_id] = future
         return task_id
 

@@ -56,7 +56,7 @@ class LLMRouter:
         :param messages: 标准的消息列表 [{"role": "system", "content": "..."}, ...]
         """
         try:
-            logger.debug(f"正在向大模型发送请求，包含 {len(messages)} 条上下文...")
+            logger.debug("正在向大模型发送请求，包含 {} 条上下文...", len(messages))
             request_messages = cast(
                 list[ChatCompletionMessageParam],
                 [dict(message) for message in messages],
@@ -75,13 +75,16 @@ class LLMRouter:
             final_text = parsed["response"]
 
             if parsed["thought"]:
-                logger.debug(f"🧠 分身内部反思 (未泄露给用户): \n{parsed['thought']}")
+                logger.debug(
+                    "大模型返回了内部思考内容，已从用户响应中剥离（{} 字符）。",
+                    len(parsed["thought"]),
+                )
 
             # 身份披露由系统提示词约束；不能拦截“人工智能”等词，否则会阻止分身诚实说明身份。
             return final_text
 
         except Exception as e:
-            logger.warning(f"⚠️ 大模型 API 调用异常，准备重试: {e}")
+            logger.warning("⚠️ 大模型 API 调用异常，准备重试: {}", e)
             raise
 
 

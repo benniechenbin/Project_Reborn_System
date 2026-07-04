@@ -130,7 +130,7 @@ class Container:
             scanner=scanner,
             knowledge_loader=lambda: load_processed_knowledge(
                 vault_path=obsidian_path,
-                target_folders=self.settings.REBORN_TARGET_FOLDERS,
+                target_folders=self.settings.memory_index_folders,
             ),
             generation_store=self.retrieval_generations,
             history_repository=self.db_manager,

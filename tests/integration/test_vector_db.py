@@ -44,9 +44,13 @@ def test_vector_db_workflow(test_settings, tmp_path):
     db.add_documents(
         [
             Document(
-                page_content="关于诚实的价值观：我们永远不说谎。", metadata={"source": "values.md"}
+                page_content="关于诚实的价值观：我们永远不说谎。",
+                metadata={"source": "values.md"},
             ),
-            Document(page_content="关于勤奋：我们要努力工作。", metadata={"source": "work.md"}),
+            Document(
+                page_content="关于勤奋：我们要努力工作。",
+                metadata={"source": "work.md"},
+            ),
         ]
     )
 
@@ -55,3 +59,29 @@ def test_vector_db_workflow(test_settings, tmp_path):
     assert len(results) > 0
     assert "诚实" in results[0].page_content
     assert results[0].metadata["rerank_score"] == 0.9
+    assert (tmp_path / "test_qdrant" / "bm25_index.json").exists()
+    assert not (tmp_path / "test_qdrant" / "bm25_index.pkl").exists()
+
+
+def test_legacy_pickle_bm25_index_is_ignored(test_settings, tmp_path):
+    mock_encoder = MagicMock()
+
+    def mock_encode(texts):
+        if isinstance(texts, str):
+            return np.random.rand(384).astype(np.float32)
+        return np.random.rand(len(texts), 384).astype(np.float32)
+
+    mock_encoder.encode.side_effect = mock_encode
+    vector_path = tmp_path / "legacy_qdrant"
+    vector_path.mkdir()
+    (vector_path / "bm25_index.pkl").write_bytes(b"not a safe index")
+
+    db = QdrantDBProvider(
+        app_settings=test_settings,
+        vector_db_path=vector_path,
+        encoder=mock_encoder,
+        reranker_loader=MagicMock(),
+    )
+
+    assert db.bm25_corpus == []
+    assert db.bm25_model is None

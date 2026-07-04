@@ -63,3 +63,28 @@ def test_parse_think_tags_with_multiline_and_spaces():
 
     assert "第一步：安抚情绪。" in result["thought"]
     assert result["response"] == "过来让爸爸抱抱。"
+
+
+def test_parse_frontmatter_complex_yaml():
+    content = """---
+date: 2026-07-04
+tags:
+  - 复杂格式
+  - yaml测试
+  - Multi-line
+---
+正文部分"""
+    meta = parse_frontmatter(content)
+    assert meta["date"] == "2026-07-04"
+    assert "复杂格式" in meta["tags"]
+    assert "Multi-line" in meta["tags"]
+
+
+def test_parse_frontmatter_invalid_yaml_fallback():
+    content = """---
+{invalid yaml : [ : :
+---"""
+    meta = parse_frontmatter(content)
+    assert meta["date"] == "未知日期"
+    assert meta["tags"] == []
+

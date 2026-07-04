@@ -1,6 +1,5 @@
 import pytest
 from pathlib import Path
-from reborn_core.infrastructure.knowledge.pipeline import load_processed_knowledge
 from reborn_core.infrastructure.knowledge.scanner import AssetScanner
 import wave
 
@@ -41,11 +40,21 @@ def mock_vault(tmp_path):
     return vault, audio_dir
 
 
+def load_processed_knowledge_with_rag(*args, **kwargs):
+    pytest.importorskip("langchain_community")
+    from reborn_core.infrastructure.knowledge.pipeline import load_processed_knowledge
+
+    return load_processed_knowledge(*args, **kwargs)
+
+
 def test_load_processed_knowledge(mock_vault):
     vault_path, _ = mock_vault
     target_folders = ["02_Values", "03_Stories"]
 
-    docs = load_processed_knowledge(vault_path=vault_path, target_folders=target_folders)
+    docs = load_processed_knowledge_with_rag(
+        vault_path=vault_path,
+        target_folders=target_folders,
+    )
 
     assert len(docs) == 2
     assert any("Honesty" in d.page_content for d in docs)
@@ -59,11 +68,16 @@ def test_load_processed_knowledge_missing_folder(mock_vault):
     vault_path, _ = mock_vault
     target_folders = ["02_Values", "04_NonExistent"]
 
-    docs = load_processed_knowledge(vault_path=vault_path, target_folders=target_folders)
+    docs = load_processed_knowledge_with_rag(
+        vault_path=vault_path,
+        target_folders=target_folders,
+    )
     assert len(docs) == 1
 
 
 def test_load_processed_knowledge_invalid_path():
+    from reborn_core.infrastructure.knowledge.pipeline import load_processed_knowledge
+
     docs = load_processed_knowledge(vault_path=Path("/non/existent/path"))
     assert docs == []
 

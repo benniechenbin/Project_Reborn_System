@@ -129,7 +129,8 @@ class BackupService:
         if not path.name.endswith(".fernet"):
             return payload
         cipher = self._encryption_cipher(required=True)
-        assert cipher is not None
+        if cipher is None:
+            raise ConfigurationError("加密器初始化失败，无法解密备份。")
         try:
             return cipher.decrypt(payload)
         except InvalidToken as exc:

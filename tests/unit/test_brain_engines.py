@@ -37,6 +37,29 @@ def test_llm_router_generate_response(test_settings, mock_openai_client):
     mock_openai_client.chat.completions.create.assert_called_once()
 
 
+def test_llm_router_does_not_log_think_content(test_settings, monkeypatch):
+    client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = (
+        "<think>private reasoning should stay private</think>Hello world"
+    )
+    client.chat.completions.create.return_value = mock_response
+    logger_mock = MagicMock()
+    monkeypatch.setattr("reborn_core.domains.brain.llm_router.logger", logger_mock)
+
+    router = LLMRouter(app_settings=test_settings, client=client)
+    response = router.generate_response([{"role": "user", "content": "hello"}])
+
+    logged_debug_args = " ".join(
+        str(arg)
+        for call in logger_mock.debug.call_args_list
+        for arg in call.args
+    )
+    assert response == "Hello world"
+    assert "private reasoning should stay private" not in logged_debug_args
+
+
 def test_llm_router_retry_logic(test_settings, mock_openai_client):
     # Mock failure then success
     mock_openai_client.chat.completions.create.side_effect = [
@@ -47,7 +70,7 @@ def test_llm_router_retry_logic(test_settings, mock_openai_client):
     router = LLMRouter(app_settings=test_settings, client=mock_openai_client)
     msgs = [{"role": "user", "content": "hello"}]
 
-    # We need to reduce wait time for tests if possible, but tenacity retry is hardcoded in the class.
+    # Tenacity retry timing is hardcoded here, so this test exercises the real retry path.
     # For now, let's just assert it eventually succeeds.
     response = router.generate_response(msgs)
     assert response == "Test response"

@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     db_path: Path = Field(default=Path("data/sqlite/reborn.db"), description="SQLite 数据库路径")
     vector_db_path: Path = Field(default=Path("data/retrieval"), description="检索索引根目录")
     backup_dir: Path = Field(default=Path("data/backups"), description="加密备份目录")
+    memory_gaps_path: Path = Field(
+        default=Path("data/memory_gaps.json"),
+        description="RAG 记忆盲区记录文件路径",
+    )
     task_worker_threads: int = Field(default=2, ge=1, le=16, description="后台任务工作线程数")
     retrieval_generation_retention: int = Field(
         default=3,
@@ -98,6 +102,22 @@ class Settings(BaseSettings):
     child_gender: str | None = Field(default=None, description="孩子性别")
     child_birthday: str | None = Field(default=None, description="孩子生日（YYYY-MM-DD）")
 
+    core_values_folder: str = Field(
+        default="02_Values",
+        description="价值观和身份核所在的 Obsidian 目录名",
+    )
+    stories_folder: str = Field(
+        default="03_Stories",
+        description="人生故事记忆所在的 Obsidian 目录名",
+    )
+    ai_reflections_folder: str = Field(
+        default="00_AI_Reflections",
+        description="AI 派生价值观反思所在的子目录名",
+    )
+    source_artifacts_folder: str = Field(
+        default="01_Source_Artifacts",
+        description="不可变原始资料归档目录名",
+    )
     REBORN_TARGET_FOLDERS: tuple[str, ...] = Field(
         default=("02_Values", "03_Stories"),
         description="需要摄入检索索引的 Obsidian 目录",
@@ -157,8 +177,19 @@ class Settings(BaseSettings):
         return self._resolve_path(self.backup_dir)
 
     @property
+    def resolved_memory_gaps_path(self) -> Path:
+        return self._resolve_path(self.memory_gaps_path)
+
+    @property
     def resolved_legacy_activation_file(self) -> Path:
         return self._resolve_path(self.legacy_activation_file)
+
+    @property
+    def memory_index_folders(self) -> tuple[str, ...]:
+        default_folders = ("02_Values", "03_Stories")
+        if tuple(self.REBORN_TARGET_FOLDERS) != default_folders:
+            return self.REBORN_TARGET_FOLDERS
+        return (self.core_values_folder, self.stories_folder)
 
     def require_child_profile(self) -> tuple[str, str, str, str]:
         values = (
@@ -198,6 +229,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
-
-settings = get_settings()

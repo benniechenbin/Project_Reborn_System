@@ -16,6 +16,7 @@ class MemoryWriter:
         obsidian_root: Path | None = None,
     ) -> None:
         settings = app_settings or get_settings()
+        self.settings = settings
         self.obsidian_root = (
             obsidian_root
             or settings.active_obsidian_path
@@ -47,7 +48,7 @@ class MemoryWriter:
             f"source_artifact: {json.dumps(source_ref, ensure_ascii=False)}\n" if source_ref else ""
         )
         if not content.startswith("---"):
-            now = datetime.now().strftime("%Y-%m-%d %H:%M")
+            now = datetime.now(UTC).isoformat()
             fallback_yaml = (
                 f"---\ndate: {now}\ncategory: {default_category}\n"
                 f"{source_line}tags: [AI_Fallback]\n---\n\n"
@@ -59,7 +60,7 @@ class MemoryWriter:
 
     def save_source_transcript(self, title: str, content: str, mode: str) -> str:
         """在派生记忆目录之外持久化不可变的原始资料。"""
-        target_dir = self.obsidian_root / "01_Source_Artifacts" / "Interviews"
+        target_dir = self.obsidian_root / self.settings.source_artifacts_folder / "Interviews"
         now = datetime.now(UTC)
         safe_title = self._sanitize_filename(title) or "untitled"
         target_path = target_dir / f"{now.strftime('%Y%m%dT%H%M%S.%fZ')}_{safe_title}.md"
@@ -82,7 +83,11 @@ class MemoryWriter:
         source_ref: str | None = None,
     ) -> bool:
         """保存价值观/认知类记忆 (ROM) 到 00_AI_Reflections"""
-        target_dir = self.obsidian_root / "02_Values" / "00_AI_Reflections"
+        target_dir = (
+            self.obsidian_root
+            / self.settings.core_values_folder
+            / self.settings.ai_reflections_folder
+        )
         target_dir.mkdir(parents=True, exist_ok=True)
 
         safe_title = self._sanitize_filename(title)
@@ -93,7 +98,11 @@ class MemoryWriter:
 
         try:
             # 注入/校验 YAML 头
-            final_content = self._ensure_yaml_frontmatter(content, "02_Values", source_ref)
+            final_content = self._ensure_yaml_frontmatter(
+                content,
+                self.settings.core_values_folder,
+                source_ref,
+            )
             self._write_atomic(file_path, final_content)
             logger.info(f"✅ 成功保存价值观记忆: {file_path}")
             return True
@@ -108,7 +117,7 @@ class MemoryWriter:
         source_ref: str | None = None,
     ) -> bool:
         """保存往事/经历类记忆 (RAM) 到 03_Stories"""
-        target_dir = self.obsidian_root / "03_Stories"
+        target_dir = self.obsidian_root / self.settings.stories_folder
         target_dir.mkdir(parents=True, exist_ok=True)
 
         safe_title = self._sanitize_filename(title)
@@ -119,7 +128,11 @@ class MemoryWriter:
 
         try:
             # 注入/校验 YAML 头
-            final_content = self._ensure_yaml_frontmatter(content, "03_Stories", source_ref)
+            final_content = self._ensure_yaml_frontmatter(
+                content,
+                self.settings.stories_folder,
+                source_ref,
+            )
             self._write_atomic(file_path, final_content)
             logger.info(f"✅ 成功保存故事记忆: {file_path}")
             return True
@@ -129,14 +142,14 @@ class MemoryWriter:
 
     def read_master_identity(self) -> str:
         """读取当前的身份核文件"""
-        path = self.obsidian_root / "02_Values" / "00_Master_Identity.md"
+        path = self.obsidian_root / self.settings.core_values_folder / "00_Master_Identity.md"
         if path.exists():
             return path.read_text(encoding="utf-8")
         return "（目前身份档案为空。造物主尚未提供核心身份信息。）"
 
     def save_master_identity(self, content: str) -> bool:
         """覆盖式写入身份核文件"""
-        target_dir = self.obsidian_root / "02_Values"
+        target_dir = self.obsidian_root / self.settings.core_values_folder
         target_dir.mkdir(parents=True, exist_ok=True)
 
         target_path = target_dir / "00_Master_Identity.md"

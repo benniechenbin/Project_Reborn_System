@@ -1,9 +1,16 @@
 import pytest
 import json
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import datetime
 from unittest.mock import MagicMock
 from reborn_core.domains.brain.rag_engine import RAGEngine
-from langchain_core.documents import Document
+
+
+@dataclass
+class Memory:
+    page_content: str
+    metadata: dict = field(default_factory=dict)
 
 
 @pytest.fixture
@@ -13,7 +20,7 @@ def mock_dependencies():
 
     vector_db = MagicMock()
     # Default: return some documents
-    doc = Document(page_content="I remember when you were born.", metadata={"rerank_score": 0.9})
+    doc = Memory(page_content="I remember when you were born.", metadata={"rerank_score": 0.9})
     vector_db.search.return_value = [doc]
 
     return llm_router, vector_db
@@ -119,7 +126,7 @@ def test_rag_get_level_2_personality_empty(rag_engine):
 
 def test_rag_get_level_3_ram_success(rag_engine, mock_dependencies):
     _, vector_db = mock_dependencies
-    doc = Document(page_content="Memory 1", metadata={"rerank_score": 0.8})
+    doc = Memory(page_content="Memory 1", metadata={"rerank_score": 0.8})
     vector_db.search.return_value = [doc]
 
     text, score, refs = rag_engine._get_level_3_ram("test query")
@@ -142,11 +149,22 @@ def test_rag_record_memory_gap(rag_engine):
     rag_engine._record_memory_gap("unknown topic", -0.9)
     assert rag_engine.gap_file.exists()
 
-    with open(rag_engine.gap_file, "r", encoding="utf-8") as f:
-        gaps = json.load(f)
+    gaps = json.loads(rag_engine.gap_file.read_text(encoding="utf-8"))
     assert len(gaps) == 1
     assert gaps[0]["query"] == "unknown topic"
     assert gaps[0]["score"] == -0.9
+
+
+def test_rag_record_memory_gap_is_thread_safe(rag_engine):
+    def record(index):
+        rag_engine._record_memory_gap(f"unknown topic {index}", -0.9)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(record, range(20)))
+
+    gaps = json.loads(rag_engine.gap_file.read_text(encoding="utf-8"))
+    assert len(gaps) == 20
+    assert {gap["query"] for gap in gaps} == {f"unknown topic {index}" for index in range(20)}
 
 
 def test_generate_avatar_response(rag_engine, mock_dependencies):

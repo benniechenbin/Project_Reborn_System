@@ -1,6 +1,9 @@
 import json
+import os
+import threading
+import uuid
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from reborn_core.application.ports import ChatModel, MemoryRetriever
@@ -8,13 +11,15 @@ from reborn_core.config import Settings, get_settings
 from reborn_core.domains.brain.prompt_registry import PromptRegistry, get_prompt_registry
 from reborn_core.observability import logger
 
+_MEMORY_GAP_LOCK = threading.Lock()
+
 
 class RAGEngine:
     def __init__(
         self,
+        vector_db: MemoryRetriever,
         app_settings: Settings | None = None,
         llm_router: ChatModel | None = None,
-        vector_db: MemoryRetriever | None = None,
         prompt_registry: PromptRegistry | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -23,20 +28,17 @@ class RAGEngine:
             from .llm_router import LLMRouter
 
             llm_router = LLMRouter(app_settings=settings)
-        if vector_db is None:
-            from reborn_core.domains.memory.vector_store import QdrantDBProvider
-
-            vector_db = QdrantDBProvider(app_settings=settings)
 
         self.llm_router = llm_router
         self.vector_db = vector_db
         self.prompt_registry = prompt_registry or get_prompt_registry()
-        self.clock = clock or datetime.now
+        self.clock = clock or (lambda: datetime.now(UTC))
         obsidian_root = settings.active_obsidian_path or (settings.base_dir / "data" / "memories")
 
-        self.core_memories_path = obsidian_root / "02_Values"
-        self.reflections_path = self.core_memories_path / "00_AI_Reflections"
-        self.gap_file = settings.base_dir / "data" / "memory_gaps.json"
+        self.core_memories_path = obsidian_root / settings.core_values_folder
+        self.reflections_path = self.core_memories_path / settings.ai_reflections_folder
+        self.gap_file = settings.resolved_memory_gaps_path
+        self._gap_lock = _MEMORY_GAP_LOCK
 
         (
             self.creator_name,
@@ -97,7 +99,7 @@ class RAGEngine:
                 content = f.read_text(encoding="utf-8")
                 summaries.append(f"【近期感悟】：{content}")
             except Exception as e:
-                logger.error(f"读取反思文件失败: {e}")
+                logger.error("读取反思文件失败: {}", e)
         return "\n\n".join(summaries) if summaries else "（暂无近期性格碎片）"
 
     def _get_level_3_ram(self, query: str) -> tuple:
@@ -114,7 +116,7 @@ class RAGEngine:
             # 必须同时返回 memories（即 references），供前端使用
             return ram_text, max_score, memories
         except Exception as e:
-            logger.error(f"RAM 检索失败: {e}")
+            logger.error("RAM 检索失败: {}", e)
             return "（记忆通路暂时阻塞）", -1.0, []
 
     def _record_memory_gap(self, query: str, score: float):
@@ -125,22 +127,33 @@ class RAGEngine:
             "timestamp": self.clock().strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-        gaps = []
-        if self.gap_file.exists():
+        with self._gap_lock:
+            gaps: list[dict[str, Any]] = []
+            if self.gap_file.exists():
+                try:
+                    loaded = json.loads(self.gap_file.read_text(encoding="utf-8"))
+                    gaps = loaded if isinstance(loaded, list) else []
+                except Exception:
+                    gaps = []
+
+            # 只保留最近 100 条记录
+            gaps.append(gap_entry)
+            gaps = gaps[-100:]
+
+            self.gap_file.parent.mkdir(parents=True, exist_ok=True)
+            temp_path = self.gap_file.with_name(
+                f".{self.gap_file.name}.{uuid.uuid4().hex}.tmp"
+            )
             try:
-                with open(self.gap_file, "r", encoding="utf-8") as f:
-                    gaps = json.load(f)
-            except Exception:
-                gaps = []
-
-        # 只保留最近 100 条记录
-        gaps.append(gap_entry)
-        gaps = gaps[-100:]
-
-        self.gap_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.gap_file, "w", encoding="utf-8") as f:
-            json.dump(gaps, f, ensure_ascii=False, indent=2)
-        logger.warning(f"🕵️ 发现记忆盲区，已记录查询: {query} (Score: {score})")
+                temp_path.write_text(
+                    json.dumps(gaps, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                os.replace(temp_path, self.gap_file)
+            finally:
+                if temp_path.exists():
+                    temp_path.unlink()
+        logger.warning("🕵️ 发现记忆盲区，已记录查询: {} (Score: {})", query, score)
 
     def generate_avatar_response(
         self,
@@ -178,7 +191,7 @@ class RAGEngine:
             messages.extend(history)
         messages.append({"role": "user", "content": user_query})
 
-        logger.info(f"🧠 分身正在思考... RAM 召回分值: {max_score}")
+        logger.info("🧠 分身正在思考... RAM 召回分值: {}", max_score)
         response_text = self.llm_router.generate_response(messages)
 
         # 必须返回元组，以满足 app.py 的解包需求

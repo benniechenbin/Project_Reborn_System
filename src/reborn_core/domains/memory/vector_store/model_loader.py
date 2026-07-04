@@ -1,13 +1,14 @@
 import os
 import functools
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from reborn_core.config import settings
+from reborn_core.config import get_settings
 from reborn_core.observability import logger
 
 
 @functools.lru_cache(maxsize=1)
 def load_embedding_model():
     """加载 Embedding 模型：优先本地，缺失时自动下载并固化"""
+    settings = get_settings()
     model_name = "BAAI/bge-small-zh-v1.5"
     # 定义项目内的专属存放路径
     local_model_path = settings.resolved_models_dir / "bge-small-zh-v1.5"
@@ -35,6 +36,7 @@ def load_embedding_model():
 @functools.lru_cache(maxsize=1)
 def load_reranker_model():
     """加载重排序模型 (支持本地固化)"""
+    settings = get_settings()
     local_model_path = settings.resolved_models_dir / "bge-reranker-base"
 
     try:

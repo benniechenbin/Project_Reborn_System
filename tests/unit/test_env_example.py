@@ -1,5 +1,6 @@
 import pytest
 
+import reborn_core.config as config
 from scripts.generate_env_example import build_env_example
 
 
@@ -13,6 +14,11 @@ def test_env_example_uses_defaults_and_hides_secrets():
     assert "BACKUP_ENCRYPTION_KEY=\n" in content
     assert "BACKUP_REQUIRE_ENCRYPTION=true" in content
     assert "BASE_DIR=" not in content
+
+
+def test_config_package_does_not_export_eager_settings_singleton():
+    assert "settings" not in config.__all__
+    assert not isinstance(getattr(config, "settings", None), config.Settings)
 
 
 def test_avatar_profile_requires_creator_name(test_settings):

@@ -13,7 +13,9 @@ from reborn_core.runtime import TaskRecord, TaskStatus
 @pytest.fixture
 def db_manager(tmp_path):
     db_path = tmp_path / "test.db"
-    return DBManager(db_path=db_path)
+    manager = DBManager(db_path=db_path)
+    manager.migrate()
+    return manager
 
 
 def test_db_migration(db_manager):

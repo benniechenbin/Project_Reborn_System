@@ -12,6 +12,8 @@ def test_derived_memory_references_immutable_transcript(tmp_path, test_settings)
     assert len(source_files) == 1
     assert "user: 原始访谈" in source_files[0].read_text(encoding="utf-8")
     assert f'source_artifact: "{source_ref}"' in story
+    assert "date: " in story
+    assert "+00:00" in story
 
 
 def test_master_identity_keeps_previous_snapshot(tmp_path, test_settings):
