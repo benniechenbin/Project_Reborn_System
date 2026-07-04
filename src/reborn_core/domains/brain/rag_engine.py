@@ -141,9 +141,7 @@ class RAGEngine:
             gaps = gaps[-100:]
 
             self.gap_file.parent.mkdir(parents=True, exist_ok=True)
-            temp_path = self.gap_file.with_name(
-                f".{self.gap_file.name}.{uuid.uuid4().hex}.tmp"
-            )
+            temp_path = self.gap_file.with_name(f".{self.gap_file.name}.{uuid.uuid4().hex}.tmp")
             try:
                 temp_path.write_text(
                     json.dumps(gaps, ensure_ascii=False, indent=2),

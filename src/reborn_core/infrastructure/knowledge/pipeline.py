@@ -22,7 +22,9 @@ def load_processed_knowledge(
     try:
         from langchain_community.document_loaders import DirectoryLoader, TextLoader
     except ImportError as exc:
-        raise RuntimeError("Memory sync requires installing the `rag` optional dependencies.") from exc
+        raise RuntimeError(
+            "Memory sync requires installing the `rag` optional dependencies."
+        ) from exc
 
     target_folders = target_folders or settings.memory_index_folders
     final_docs = []

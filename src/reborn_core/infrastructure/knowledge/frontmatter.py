@@ -47,4 +47,3 @@ def parse_frontmatter(content: str) -> dict[str, str | list[str]]:
         pass
 
     return metadata
-

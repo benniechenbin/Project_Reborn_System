@@ -92,8 +92,7 @@ class QdrantDBProvider(BaseVectorDB):
         if not self.bm25_path.exists():
             if self.legacy_bm25_pickle_path.exists():
                 logger.warning(
-                    "忽略旧版 pickle BM25 索引：{}。"
-                    "请重新同步以生成安全 JSON 索引。",
+                    "忽略旧版 pickle BM25 索引：{}。请重新同步以生成安全 JSON 索引。",
                     self.legacy_bm25_pickle_path,
                 )
             return

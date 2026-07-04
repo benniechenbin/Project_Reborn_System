@@ -6,9 +6,17 @@ on:
   pull_request:
     branches: ["main", "master"]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  core:
+  quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -24,7 +32,27 @@ jobs:
       - run: uv lock --check
       - run: uv sync --extra dev --extra llm --extra rag --frozen
       - run: uv run --no-sync python scripts/generate_env_example.py --check
-      - run: uv run --no-sync pytest
-      - run: uv run --no-sync ruff check src tests scripts
+      - run: uv run --no-sync python -m py_compile app.py
+      - run: uv run --no-sync ruff check src tests scripts app.py
+      - run: uv run --no-sync ruff format --check src tests scripts app.py
       - run: uv run --no-sync mypy src scripts --ignore-missing-imports --check-untyped-defs --warn-unused-ignores --warn-unreachable
       - run: uv build
+
+  tests:
+    name: tests (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --extra dev --extra llm --extra rag --frozen
+      - run: uv run --no-sync pytest

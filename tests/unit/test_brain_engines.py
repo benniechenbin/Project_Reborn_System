@@ -41,9 +41,9 @@ def test_llm_router_does_not_log_think_content(test_settings, monkeypatch):
     client = MagicMock()
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = (
-        "<think>private reasoning should stay private</think>Hello world"
-    )
+    mock_response.choices[
+        0
+    ].message.content = "<think>private reasoning should stay private</think>Hello world"
     client.chat.completions.create.return_value = mock_response
     logger_mock = MagicMock()
     monkeypatch.setattr("reborn_core.domains.brain.llm_router.logger", logger_mock)
@@ -52,9 +52,7 @@ def test_llm_router_does_not_log_think_content(test_settings, monkeypatch):
     response = router.generate_response([{"role": "user", "content": "hello"}])
 
     logged_debug_args = " ".join(
-        str(arg)
-        for call in logger_mock.debug.call_args_list
-        for arg in call.args
+        str(arg) for call in logger_mock.debug.call_args_list for arg in call.args
     )
     assert response == "Hello world"
     assert "private reasoning should stay private" not in logged_debug_args

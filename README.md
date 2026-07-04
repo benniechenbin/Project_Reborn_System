@@ -12,9 +12,11 @@
 ## 🇬🇧 English
 
 ### 📖 About The Project
-**Project Reborn** is a highly personalized "Digital Twin" engine. Unlike standard knowledge base systems or enterprise RAG bots, this system is designed to capture, digest, and preserve a human creator's core values, memories, and cognitive patterns, ultimately generating an autonomous digital entity.
+**Project Reborn** is a digital companionship system aimed at providing a digital lifeform to accompany a child growing up in the event of their parents' early passing. It is designed as a highly personalized two-phase private customization product:
+- **Phase 1 (Current Development):** Recording the parents' living habits, values, and language patterns through handwritten texts and AI interviews, bridging the creator's **Second Brain (Obsidian)** with a core memory architecture.
+- **Phase 2 (Future Integration):** Connecting with digital human avatars and voice cloning technologies to create an interactive, autonomous digital entity.
 
-It acts as a bridge between a creator's **Second Brain (Obsidian)** and an interactive **Avatar Sandbox**, aiming to provide continuous companionship and guidance for the creator's child or family members.
+Ultimately, it acts as an interactive **Avatar Sandbox**, aiming to provide continuous companionship, guidance, and preserving a human creator's core legacy.
 
 ### 🏗️ Core Architecture (Hierarchical Memory)
 The engine utilizes a biologically inspired memory architecture:
@@ -63,9 +65,10 @@ uv run --extra ui --extra llm --extra rag --extra voice streamlit run app.py
 
 ### 📖 项目简介
 
-**Project Reborn (数字生命引擎)** 是一个高度个性化的“数字分身”构建系统。与传统的企业级知识库或普通聊天机器人不同，本系统旨在捕获、消化和永久封存创造者的底层逻辑、核心价值观与人生故事。
+**Project Reborn (数字生命引擎)** 的最终目标是一个数字陪伴系统，其核心愿景是在孩子幼年时若父母不幸离世，能够提供一个陪伴孩子成长的数字生命体。如果未来商业化，这将是一个双阶段的私人定制产品。项目整体分为两个阶段：
 
-它将创作者的**第二大脑（Obsidian 知识库）**与动态交互的**陪伴沙盒**完美桥接，最终目标是为创作者的子孙后代提供一个具有真实人格厚度、能够独立思考并陪伴成长的数字实体。
+- **第一阶段（当前进行中）：** 通过手写记录以及 AI 采访等方式，深度记录父母的生活习惯、价值观、语言习惯等。将创作者的**第二大脑（Obsidian 知识库）**与底层记忆模型结合，永久封存底层逻辑与人生故事。
+- **第二阶段（未来规划）：** 接入数字人、语音克隆等前端技术栈，结合动态交互的**陪伴沙盒**，最终生成一个具有真实人格厚度、能够独立思考并提供陪伴的数字实体。
 
 ### 🏗️ 核心架构 (ROM/RAM 分层记忆模型)
 
