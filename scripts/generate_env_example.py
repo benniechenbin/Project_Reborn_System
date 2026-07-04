@@ -11,9 +11,14 @@ from pydantic import SecretBytes, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from reborn_core.config import Settings
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
-DEFAULT_OUTPUT_FILE = Path(".env.example")
+from reborn_core.config import Settings  # noqa: E402
+
+DEFAULT_OUTPUT_FILE = PROJECT_ROOT / ".env.example"
 EXCLUDED_FIELDS = {"base_dir"}
 
 
@@ -82,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{args.output} 已过期。", file=sys.stderr)
         return 1
 
-    print("已更新 .env.example" if write_env_example(args.output) else ".env.example 已是最新")
+    print(f"已更新 {args.output}" if write_env_example(args.output) else f"{args.output} 已是最新")
     return 0
 
 

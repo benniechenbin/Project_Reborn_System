@@ -1,8 +1,32 @@
-import pytest
 from pathlib import Path
+import subprocess
+import sys
+
+import pytest
 
 import reborn_core.config as config
-from scripts.generate_env_example import build_env_example
+from scripts.generate_env_example import DEFAULT_OUTPUT_FILE, build_env_example
+
+
+def test_default_env_example_output_points_to_project_root():
+    project_root = Path(__file__).parents[2]
+
+    assert DEFAULT_OUTPUT_FILE == project_root / ".env.example"
+
+
+def test_script_check_works_from_outside_project_root(tmp_path):
+    project_root = Path(__file__).parents[2]
+    script = project_root / "scripts" / "generate_env_example.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--check"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_env_example_uses_defaults_and_hides_secrets():
