@@ -15,4 +15,3 @@ logs/*.jsonl
 data/
 models/
 _archive/
-docs/

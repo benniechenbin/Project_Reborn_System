@@ -1,0 +1,35 @@
+### 🏛️ Architecture Decision Record (ADR-001)
+
+这是 Project Reborn 的第一版架构决策记录，用于固化我们关于记忆检索索引更新的底层逻辑。
+
+#### ADR-001: 采用基于文件系统逻辑别名的检索代次 (Retrieval Generation) 原子切换机制
+
+**状态 (Status):** 已生效 (Accepted)
+
+**背景 (Context):** Project Reborn 依赖 Qdrant 和 BM25 构建潜意识经验池（RAM）。数字分身的记忆库会随着 Obsidian 笔记的增加而不断更新。如果同步程序在运行时直接删除并重建固定的 Qdrant collection，会导致以下问题：
+
+1. 更新期间（通常需要几分钟到几十分钟），数字分身的 RAG 引擎将处于不可用或部分可用状态。
+
+2. 如果在向量化过程中发生中断或大模型 API 报错，当前记忆索引会被破坏，导致分身“失忆”。
+
+3. 无法实现记忆状态的安全回滚。
+
+
+**决策 (Decision):** 本地嵌入式 Qdrant 使用文件系统逻辑别名，而不是先删除固定 collection。
+
+具体实现机制如下：
+
+1. 每次全量同步时，在 `data/retrieval/generations/<generation-id>/` 下创建一个全新的独立物理目录。
+
+2. 在该新目录中构建独立的 Qdrant 集合和 BM25 索引。
+
+3. 构建并进行健康检查通过后，使用 `os.replace` 原子更新 `data/retrieval/active_generation.json`，将活动指针切换到新代次。
+
+4. 构建失败时，活动代次指针保持不变；系统保留最近的 N 个健康代次，旧代次可用于瞬间回滚。
+
+
+**后果 (Consequences):**
+
+- **优势 (Positive):** 实现了零停机时间 (Zero-downtime) 的记忆同步；极大提升了系统的健壮性，任何构建失败都不会污染当前正在运行的数字分身大脑；支持记忆状态的时间旅行（回滚）。
+
+- **劣势 (Negative):** 会占用更多的磁盘空间，因为在同一时刻磁盘上会存在至少两个全量索引副本；需要额外的后台任务去裁剪（Prune）超出保留数量的过期检索代次。
