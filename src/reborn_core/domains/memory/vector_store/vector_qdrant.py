@@ -129,8 +129,8 @@ class QdrantDBProvider(BaseVectorDB):
         md_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
 
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=800,
-            chunk_overlap=120,
+            chunk_size=600,
+            chunk_overlap=150,
             separators=["\n\n", "\n", "。", "！", "？", " ", ""],
         )
 

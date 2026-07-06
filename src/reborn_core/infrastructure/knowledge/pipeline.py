@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from reborn_core.config import get_settings
 from reborn_core.observability import logger
 from reborn_core.infrastructure.knowledge.frontmatter import parse_frontmatter
+from reborn_core.utils.parsers import clean_markdown_noise
 
 
 def load_processed_knowledge(
@@ -53,6 +54,10 @@ def load_processed_knowledge(
             doc.metadata["category"] = folder_name
             # 抹除 YAML 头部
             doc.page_content = re.sub(r"^---\n.*?\n---\n", "", doc.page_content, flags=re.DOTALL)
+
+            # 👇 新增：调用我们刚刚写好的高纯度清洗器
+            doc.page_content = clean_markdown_noise(doc.page_content)
+
             final_docs.append(doc)
 
     logger.info(
