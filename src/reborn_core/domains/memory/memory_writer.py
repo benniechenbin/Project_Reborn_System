@@ -5,22 +5,21 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.observability import logger
 
 
 class MemoryWriter:
     def __init__(
         self,
-        app_settings: Settings | None = None,
+        app_settings: Settings,
         obsidian_root: Path | None = None,
     ) -> None:
-        settings = app_settings or get_settings()
-        self.settings = settings
+        self.settings = app_settings
         self.obsidian_root = (
             obsidian_root
-            or settings.active_obsidian_path
-            or (settings.base_dir / "data" / "memories")
+            or app_settings.active_obsidian_path
+            or (app_settings.base_dir / "data" / "memories")
         )
         self.obsidian_root.mkdir(parents=True, exist_ok=True)
 

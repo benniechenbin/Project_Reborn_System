@@ -1,7 +1,7 @@
+import os
 import platform
-from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Literal, Any
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,9 +11,11 @@ from .enums import LegacyActivationMode
 
 def find_project_root(
     current_path: Path,
-    markers: tuple[str, ...] = ("pyproject.toml", ".git"),
+    markers: tuple[str, ...] = ("pyproject.toml", "requirements.txt", ".git"),
 ) -> Path:
-    for parent in [current_path] + list(current_path.parents):
+    if env_root := os.environ.get("PROJECT_ROOT"):
+        return Path(env_root).resolve()
+    for parent in current_path.parents:
         if any((parent / marker).exists() for marker in markers):
             return parent
     return current_path.parent
@@ -22,21 +24,56 @@ def find_project_root(
 BASE_DIR = find_project_root(Path(__file__).resolve())
 
 
+LogFormat = Literal["auto", "pretty", "json"]
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+AppEnv = Literal["development", "dev", "test", "production", "prod"]
+
+
+# 默认值（必须在 class 外部定义，才能被 Field 引用）
+DEFAULT_APP_ENV: AppEnv = "dev"
+DEFAULT_LOG_LEVEL: LogLevel = "DEBUG"
+DEFAULT_LOG_FORMAT: LogFormat = "auto"
+
+
 class Settings(BaseSettings):
-    """经过校验的应用配置；导入模块时不会创建任何外部资源。"""
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    base_dir: Path = Field(
+        default=BASE_DIR,
+        description="项目根目录",
+    )
+    app_name: str = Field(
+        default="Project Reborn",
+        description="应用名称",
+    )
+    app_version: str = Field(
+        default="0.1.0",
+        description="应用版本",
+    )
+    app_env: AppEnv = Field(
+        default=DEFAULT_APP_ENV,
+        description="应用环境",
+    )
+    log_dir: Path = Field(
+        default=Path("logs"),
+        description="日志目录",
+    )
+    log_level: LogLevel = Field(
+        default=DEFAULT_LOG_LEVEL,
+        description="日志级别",
+    )
+    log_format: LogFormat = Field(
+        default=DEFAULT_LOG_FORMAT,
+        description="日志格式：auto 根据环境选择，pretty 为开发可读格式，json 为结构化日志。",
+    )
 
-    base_dir: Path = Field(default=BASE_DIR, description="项目根目录")
-
-    app_name: str = Field(default="Project Reborn", description="应用名称")
-    app_version: str = Field(default="0.1.0", description="应用版本")
-    app_env: str = Field(default="dev", description="应用环境")
     creator_name: str | None = Field(
         default=None,
         description="家长/数字人原型的真实姓名或指定称谓",
     )
-
-    log_dir: Path = Field(default=Path("logs"), description="日志目录")
-    log_level: str = Field(default="DEBUG", description="日志级别")
 
     models_dir: Path = Field(default=Path("data/local_models"), description="本地模型目录")
     hf_mirror: str = Field(default="https://hf-mirror.com", description="HuggingFace 镜像地址")
@@ -224,8 +261,3 @@ class Settings(BaseSettings):
 
     def _resolve_path(self, path: Path) -> Path:
         return path if path.is_absolute() else self.base_dir / path
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()

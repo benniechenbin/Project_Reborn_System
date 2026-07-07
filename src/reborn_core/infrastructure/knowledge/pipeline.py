@@ -2,22 +2,18 @@ import re
 from pathlib import Path
 from collections.abc import Sequence
 
-from reborn_core.config import get_settings
 from reborn_core.observability import logger
 from reborn_core.infrastructure.knowledge.frontmatter import parse_frontmatter
 from reborn_core.utils.parsers import clean_markdown_noise
 
 
 def load_processed_knowledge(
-    vault_path: Path | None = None,
-    target_folders: Sequence[str] | None = None,
+    vault_path: Path,
+    target_folders: Sequence[str],
 ):
     """扫描标品库并进行深度审计 (已支持指定目录白名单)"""
-    settings = get_settings()
-    vault_path = vault_path or settings.active_obsidian_path
-
-    if vault_path is None or not vault_path.exists():
-        logger.error("❌ 错误：未配置有效的 Obsidian 路径，或路径不存在。")
+    if not vault_path.exists():
+        logger.error("❌ 错误：指定的 Obsidian 路径不存在。")
         return []
 
     try:
@@ -27,7 +23,6 @@ def load_processed_knowledge(
             "Memory sync requires installing the `rag` optional dependencies."
         ) from exc
 
-    target_folders = target_folders or settings.memory_index_folders
     final_docs = []
 
     # 遍历白名单中的文件夹进行定向扫描

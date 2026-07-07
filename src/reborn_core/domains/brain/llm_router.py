@@ -6,7 +6,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from reborn_core.application.models import ModelMetadata
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.observability import logger
 from reborn_core.utils.parsers import parse_think_tags
 
@@ -19,15 +19,16 @@ class LLMRouter:
 
     def __init__(
         self,
-        app_settings: Settings | None = None,
+        app_settings: Settings,
         client: Any | None = None,
     ) -> None:
-        settings = app_settings or get_settings()
         self.api_key = (
-            settings.llm_api_key.get_secret_value() if settings.llm_api_key is not None else ""
+            app_settings.llm_api_key.get_secret_value()
+            if app_settings.llm_api_key is not None
+            else ""
         )
-        self.base_url = settings.llm_base_url
-        self.model_name = settings.llm_model_name
+        self.base_url = app_settings.llm_base_url
+        self.model_name = app_settings.llm_model_name
 
         if not self.api_key:
             raise ValueError("❌ 致命错误：未在 .env 中找到 LLM_API_KEY，或 settings 未能成功加载")
@@ -90,6 +91,6 @@ class LLMRouter:
 
 # 测试代码
 if __name__ == "__main__":
-    router = LLMRouter()
+    router = LLMRouter(app_settings=Settings())
     test_msgs = [{"role": "user", "content": "你好，测试一下连接。"}]
     logger.info(router.generate_response(test_msgs))

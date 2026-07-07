@@ -115,9 +115,9 @@ def test_identity_governance_promotes_only_after_human_approval(test_settings):
         InterviewMode.LIFE_STORY,
     )
 
-    reviewed = IdentityGovernanceService(snapshots, memory, LocalOwnerAccessPolicy()).approve(
-        result.identity_snapshot_id, "Reviewed by owner"
-    )
+    reviewed = IdentityGovernanceService(
+        snapshots, memory, LocalOwnerAccessPolicy(), app_settings=test_settings
+    ).approve(result.identity_snapshot_id, "Reviewed by owner")
 
     assert reviewed.status is IdentitySnapshotStatus.APPROVED
     assert reviewed.active
@@ -192,9 +192,11 @@ def test_sync_records_activated_generation():
     assert history.records[0]["generation_id"] == "generation-2"
 
 
-def test_interview_rejects_empty_transcript():
+def test_interview_rejects_empty_transcript(test_settings):
     with pytest.raises(ValueError, match="empty"):
-        InterviewService(StubLLM(), StubMemory(), StubSnapshots()).process_interview(
+        InterviewService(
+            StubLLM(), StubMemory(), StubSnapshots(), app_settings=test_settings
+        ).process_interview(
             [],
             InterviewMode.CORE_VALUES,
         )

@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from collections.abc import Generator
 
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.container import Container
 from reborn_core.core.banner import show_banner
 from reborn_core.observability import logger, setup_logger, shutdown_logger
@@ -27,7 +27,12 @@ class RebornApp:
             return self
         if show_startup_banner:
             show_banner(text=self.settings.app_name, font="slant")
-        setup_logger(self.settings.resolved_log_dir, self.settings.log_level)
+        setup_logger(
+            log_dir=self.settings.resolved_log_dir,
+            log_level=self.settings.log_level,
+            log_format=self.settings.log_format,
+            app_env=self.settings.app_env,
+        )
         for path in (
             self.settings.resolved_log_dir,
             self.settings.resolved_models_dir,
@@ -66,7 +71,7 @@ class RebornApp:
 
 
 def build_app(app_settings: Settings | None = None) -> RebornApp:
-    settings = app_settings or get_settings()
+    settings = app_settings or Settings()
     return RebornApp(settings=settings, container=Container(app_settings=settings))
 
 

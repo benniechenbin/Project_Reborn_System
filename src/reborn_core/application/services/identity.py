@@ -16,7 +16,7 @@ from reborn_core.application.ports import (
     IdentitySnapshotRepository,
     MemoryRepository,
 )
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.domains.brain.prompt_registry import (
     PromptRegistry,
     RenderedPrompt,
@@ -36,9 +36,9 @@ class IdentityGovernanceService:
         snapshots: IdentitySnapshotRepository,
         memory: MemoryRepository,
         access_policy: AccessPolicyPort,
+        app_settings: Settings,
         llm_router: ChatModel | None = None,
         llm_router_factory: Callable[[], Any] | None = None,
-        app_settings: Settings | None = None,
         prompt_registry: PromptRegistry | None = None,
     ) -> None:
         self.snapshots = snapshots
@@ -46,7 +46,7 @@ class IdentityGovernanceService:
         self.access_policy = access_policy
         self.llm_router = llm_router
         self.llm_router_factory = llm_router_factory
-        self.settings = app_settings or get_settings()
+        self.settings = app_settings
         self.prompt_registry = prompt_registry or get_prompt_registry()
 
     def list_pending(self, limit: int = 20) -> list[IdentitySnapshot]:

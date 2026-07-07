@@ -9,41 +9,39 @@ description = "Project Reborn - Digital Immortality System"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
+    "audio-recorder-streamlit>=0.0.10",
     "cryptography>=42.0.0",
-    "loguru>=0.7.2",
-    "pydantic-settings>=2.2.1",
-    "pyfiglet>=0.8.1",
-    "PyYAML>=6.0",
-]
-
-[project.optional-dependencies]
-llm = [
-    "openai>=1.0.0",
-    "tenacity>=8.2.0",
-]
-rag = [
+    "funasr>=1.0.0",
     "jieba>=0.42.1",
     "langchain-community==0.4.1",
     "langchain-core==1.2.31",
     "langchain-qdrant==1.1.0",
     "langchain-text-splitters==1.1.2",
+    "loguru>=0.7.2",
+    "modelscope>=1.0.0",
     "numpy<2.0.0",
+    "openai>=1.0.0",
+    "pandas>=2.0.0",
+    "pydantic-settings>=2.2.1",
+    "pyfiglet>=0.8.1",
+    "PyYAML>=6.0",
     "qdrant-client>=1.8.0",
     "rank-bm25>=0.2.2",
-    "sentence-transformers==2.6.1",
-    "transformers==4.39.3",
+    "sentence-transformers>=5.3.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "sentence-transformers==2.6.1; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "streamlit>=1.58.0",
+    "tenacity>=8.2.0",
+    "torch>=2.4; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "torch==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "torchvision>=0.19.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "torchvision==0.17.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "torchaudio>=2.2.2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "torchaudio==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "transformers>=4.41.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "transformers==4.39.3; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
-ui = [
-    "audio-recorder-streamlit>=0.0.10",
-    "pandas>=2.0.0",
-    "streamlit>=1.37.0",
-]
-voice = [
-    "funasr>=1.0.0",
-    "modelscope>=1.0.0",
-    "torch==2.2.2",
-    "torchaudio==2.2.2",
-]
+
+[dependency-groups]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",

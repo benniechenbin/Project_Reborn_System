@@ -13,7 +13,7 @@ from reborn_core.application.models import (
     PromptMetadata,
 )
 from reborn_core.application.ports import ChatModel, IdentitySnapshotRepository, MemoryRepository
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.domains.brain.prompt_registry import (
     PromptRegistry,
     RenderedPrompt,
@@ -34,14 +34,14 @@ class InterviewService:
         llm_router: ChatModel,
         memory_writer: MemoryRepository,
         identity_snapshots: IdentitySnapshotRepository,
-        app_settings: Settings | None = None,
+        app_settings: Settings,
         prompt_registry: PromptRegistry | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.llm = llm_router
         self.memory = memory_writer
         self.identity_snapshots = identity_snapshots
-        self.settings = app_settings or get_settings()
+        self.settings = app_settings
         self.prompt_registry = prompt_registry or get_prompt_registry()
         self.clock = clock or (lambda: datetime.now(UTC))
 

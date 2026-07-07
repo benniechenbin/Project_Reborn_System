@@ -16,7 +16,7 @@ from qdrant_client.http.models import Distance, VectorParams
 from rank_bm25 import BM25Okapi
 
 # ✅ 修复 1：正确的函数级导入
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.domains.memory.vector_store.base import BaseVectorDB
 from reborn_core.domains.memory.vector_store.model_loader import (
     load_embedding_model,
@@ -47,16 +47,45 @@ class LocalEmbedder(Embeddings):
 class QdrantDBProvider(BaseVectorDB):
     def __init__(
         self,
-        app_settings: Settings | None = None,
+        app_settings: Settings,
         vector_db_path: Path | None = None,
         encoder: Any | None = None,
-        reranker_loader: Callable[[], Any] = load_reranker_model,
+        reranker_loader: Callable[[Path, str], Any] = load_reranker_model,
     ) -> None:
-        settings = app_settings or get_settings()
-        self.encoder = encoder or load_embedding_model()
-        self._reranker_loader = reranker_loader
+        self.encoder = encoder or load_embedding_model(
+            models_dir=app_settings.resolved_models_dir,
+            hf_mirror=app_settings.hf_mirror,
+        )
         self.embedder = LocalEmbedder(self.encoder)
-        self.vector_db_path = vector_db_path or settings.resolved_vector_db_path
+
+        import inspect
+
+        try:
+            sig = inspect.signature(reranker_loader)
+            params = [
+                p
+                for p in sig.parameters.values()
+                if p.kind
+                in (
+                    inspect.Parameter.POSITIONAL_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    inspect.Parameter.KEYWORD_ONLY,
+                )
+            ]
+            has_params = len(params) > 0
+        except (ValueError, TypeError):
+            has_params = True
+
+        self._reranker_loader: Callable[[], Any]
+        if has_params:
+            self._reranker_loader = lambda: reranker_loader(
+                app_settings.resolved_models_dir,
+                app_settings.hf_mirror,
+            )
+        else:
+            self._reranker_loader = reranker_loader  # type: ignore[assignment]
+
+        self.vector_db_path = vector_db_path or app_settings.resolved_vector_db_path
         self.vector_db_path.mkdir(parents=True, exist_ok=True)
         self.bm25_path = self.vector_db_path / "bm25_index.json"
         self.legacy_bm25_pickle_path = self.vector_db_path / "bm25_index.pkl"
@@ -246,7 +275,7 @@ class QdrantDBProvider(BaseVectorDB):
 
 
 def _metadata_to_json(metadata: dict[str, Any]) -> dict[str, Any]:
-    return {str(key): _jsonable_metadata_value(value) for key, value in metadata.items()}
+    return {key: _jsonable_metadata_value(value) for key, value in metadata.items()}
 
 
 def _jsonable_metadata_value(value: Any) -> Any:
