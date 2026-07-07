@@ -11,10 +11,6 @@ FORBIDDEN_IMPORTS = {
 }
 ALLOWED_LEGACY_IMPORTS = {
     (
-        "domains/brain/llm_router.py",
-        "reborn_core.application.models",
-    ),
-    (
         "domains/brain/rag_engine.py",
         "reborn_core.application.ports",
     ),

@@ -12,6 +12,7 @@ from reborn_core.application.models import (
     IdentitySnapshotStatus,
     ModelMetadata,
     PromptMetadata,
+    SyncHistoryEntry,
 )
 from reborn_core.config import Settings
 from reborn_core.observability import logger
@@ -119,6 +120,26 @@ class DBManager:
                 ),
             )
             conn.commit()
+
+    def list_sync_history(self) -> list[SyncHistoryEntry]:
+        with self.get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT sync_time, audio_duration, notes_count, word_count, generation_id
+                FROM sync_history
+                ORDER BY sync_time ASC
+                """
+            ).fetchall()
+        return [
+            SyncHistoryEntry(
+                sync_time=str(row["sync_time"]),
+                audio_duration=float(row["audio_duration"]),
+                notes_count=int(row["notes_count"]),
+                word_count=int(row["word_count"]),
+                generation_id=row["generation_id"],
+            )
+            for row in rows
+        ]
 
     def create_identity_snapshot(self, snapshot: IdentitySnapshot) -> None:
         with self.get_connection() as conn:
@@ -279,6 +300,18 @@ class DBManager:
             result_json=row["result_json"],
             error=row["error"],
         )
+
+    def has_active_task_of_kind(self, kind: str) -> bool:
+        with self.get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT 1 FROM background_tasks
+                WHERE kind = ? AND status IN (?, ?)
+                LIMIT 1
+                """,
+                (kind, TaskStatus.QUEUED.value, TaskStatus.RUNNING.value),
+            ).fetchone()
+        return row is not None
 
     def mark_unfinished_tasks_failed(self) -> int:
         with self.get_connection() as conn:

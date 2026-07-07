@@ -1,8 +1,8 @@
 import hashlib
-import io
 import json
 import os
 import sqlite3
+import struct
 import tempfile
 import uuid
 import zipfile
@@ -18,6 +18,8 @@ from reborn_core.security import AccessAction, AccessContext
 from reborn_core.security.access import AccessPolicy
 
 HASH_CHUNK_SIZE = 64 * 1024
+STREAM_MAGIC = b"RBN1"
+CHUNK_SIZE = 64 * 1024
 
 
 class BackupRecordRepository(Protocol):
@@ -52,24 +54,27 @@ class BackupService:
         cipher = self._encryption_cipher()
         self.settings.resolved_backup_dir.mkdir(parents=True, exist_ok=True)
 
-        with tempfile.TemporaryDirectory(prefix="reborn-backup-") as temp:
-            db_snapshot = Path(temp) / "reborn.db"
-            self._snapshot_sqlite(db_snapshot)
-            archive_bytes = self._build_archive(backup_id, db_snapshot)
-
         encrypted = cipher is not None
-        final_bytes = cipher.encrypt(archive_bytes) if cipher else archive_bytes
         suffix = ".zip.fernet" if encrypted else ".zip"
         destination = self.settings.resolved_backup_dir / f"reborn_{backup_id}{suffix}"
         temp_destination = destination.with_name(f".{destination.name}.tmp")
+
         try:
-            temp_destination.write_bytes(final_bytes)
+            with tempfile.TemporaryDirectory(prefix="reborn-backup-") as temp:
+                db_snapshot = Path(temp) / "reborn.db"
+                self._snapshot_sqlite(db_snapshot)
+
+                temp_zip = Path(temp) / "archive.zip"
+                self._build_archive(backup_id, db_snapshot, temp_zip)
+
+                _encrypt_stream(temp_zip, temp_destination, cipher)
+
             os.replace(temp_destination, destination)
         finally:
             if temp_destination.exists():
                 temp_destination.unlink()
 
-        digest = _sha256_bytes(final_bytes)
+        digest = _sha256_file(destination)
         self.repository.save_backup_record(
             backup_id, str(destination), digest, encrypted, "created"
         )
@@ -78,16 +83,21 @@ class BackupService:
     def verify_backup(self, path: Path, context: AccessContext | None = None) -> dict[str, object]:
         context = context or AccessContext()
         self.access_policy.require(AccessAction.RESTORE, str(path), context)
-        payload = self._read_archive(path)
-        with zipfile.ZipFile(io.BytesIO(payload), "r") as archive:
-            manifest = json.loads(archive.read("manifest.json"))
-            for item in manifest["files"]:
-                with archive.open(item["archive_path"], "r") as member:
-                    digest, size = _sha256_stream(member)
-                if digest != item["sha256"]:
-                    raise ValueError(f"Backup checksum mismatch: {item['archive_path']}")
-                if size != item["size"]:
-                    raise ValueError(f"Backup size mismatch: {item['archive_path']}")
+
+        with tempfile.TemporaryDirectory(prefix="reborn-verify-") as temp:
+            temp_zip = Path(temp) / "reborn.zip"
+            cipher = self._encryption_cipher(required=path.name.endswith(".fernet"))
+            _decrypt_stream(path, temp_zip, cipher)
+
+            with zipfile.ZipFile(temp_zip, "r") as archive:
+                manifest = json.loads(archive.read("manifest.json"))
+                for item in manifest["files"]:
+                    with archive.open(item["archive_path"], "r") as member:
+                        digest, size = _sha256_stream(member)
+                    if digest != item["sha256"]:
+                        raise ValueError(f"Backup checksum mismatch: {item['archive_path']}")
+                    if size != item["size"]:
+                        raise ValueError(f"Backup size mismatch: {item['archive_path']}")
         return {
             "backup_id": manifest["backup_id"],
             "verified": True,
@@ -103,7 +113,11 @@ class BackupService:
         result = self.verify_backup(path, context)
         with tempfile.TemporaryDirectory(prefix="reborn-recovery-drill-") as temp:
             drill_root = Path(temp)
-            with zipfile.ZipFile(io.BytesIO(self._read_archive(path)), "r") as archive:
+            temp_zip = drill_root / "reborn.zip"
+            cipher = self._encryption_cipher(required=path.name.endswith(".fernet"))
+            _decrypt_stream(path, temp_zip, cipher)
+
+            with zipfile.ZipFile(temp_zip, "r") as archive:
                 for member in archive.infolist():
                     destination = (drill_root / member.filename).resolve()
                     if drill_root.resolve() not in destination.parents:
@@ -129,19 +143,7 @@ class BackupService:
         )
         return result
 
-    def _read_archive(self, path: Path) -> bytes:
-        payload = path.read_bytes()
-        if not path.name.endswith(".fernet"):
-            return payload
-        cipher = self._encryption_cipher(required=True)
-        if cipher is None:
-            raise ConfigurationError("加密器初始化失败，无法解密备份。")
-        try:
-            return cipher.decrypt(payload)
-        except InvalidToken as exc:
-            raise ValueError("Backup decryption failed") from exc
-
-    def _build_archive(self, backup_id: str, db_snapshot: Path) -> bytes:
+    def _build_archive(self, backup_id: str, db_snapshot: Path, target_zip_path: Path) -> None:
         files: list[tuple[Path, str]] = [(db_snapshot, "sqlite/reborn.db")]
         vault = self.settings.active_obsidian_path or self.settings.base_dir / "data" / "memories"
         if vault.exists():
@@ -155,8 +157,7 @@ class BackupService:
             files.append((activation, "governance/legacy_activation.json"))
 
         manifest_files = []
-        output = io.BytesIO()
-        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(target_zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for source, archive_path in files:
                 digest, size = _file_digest_and_size(source)
                 archive.write(source, archive_path)
@@ -181,7 +182,6 @@ class BackupService:
                     indent=2,
                 ),
             )
-        return output.getvalue()
 
     def _snapshot_sqlite(self, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -234,3 +234,67 @@ def _sha256_stream(handle: IO[bytes]) -> tuple[str, int]:
         digest.update(chunk)
         size += len(chunk)
     return digest.hexdigest(), size
+
+
+def _encrypt_stream(source_path: Path, target_path: Path, cipher: Fernet | None) -> None:
+    """Stream encrypts a file using chunk-by-chunk Fernet.
+    If cipher is None, it just copies the file (without RBN1 magic).
+    """
+    if cipher is None:
+        with source_path.open("rb") as src, target_path.open("wb") as dst:
+            while chunk := src.read(CHUNK_SIZE):
+                dst.write(chunk)
+        return
+
+    with source_path.open("rb") as src, target_path.open("wb") as dst:
+        dst.write(STREAM_MAGIC)
+        while chunk := src.read(CHUNK_SIZE):
+            token = cipher.encrypt(chunk)
+            dst.write(struct.pack(">I", len(token)))
+            dst.write(token)
+
+
+def _decrypt_stream(source_path: Path, target_path: Path, cipher: Fernet | None) -> None:
+    """Stream decrypts a chunk-by-chunk Fernet encrypted file (with RBN1 magic).
+    If it's not encrypted (no RBN1 magic), it just copies the file.
+    If it's old format (encrypted but no RBN1 magic), it decrypts it in-memory.
+    """
+    with source_path.open("rb") as src:
+        magic = src.read(len(STREAM_MAGIC))
+        if magic != STREAM_MAGIC:
+            # Check if it is the old format (starts with standard Fernet token version or zip header PK\x03\x04)
+            src.seek(0)
+            payload = src.read()
+            if source_path.name.endswith(".fernet") or (
+                cipher is not None and not payload.startswith(b"PK\x03\x04")
+            ):
+                if cipher is None:
+                    raise ConfigurationError("加密器初始化失败，无法解密旧版备份。")
+                try:
+                    decrypted = cipher.decrypt(payload)
+                except InvalidToken as exc:
+                    raise ValueError("Backup decryption failed") from exc
+                target_path.write_bytes(decrypted)
+            else:
+                target_path.write_bytes(payload)
+            return
+
+        if cipher is None:
+            raise ConfigurationError("加密器初始化失败，无法解密流式备份。")
+
+        with target_path.open("wb") as dst:
+            while True:
+                length_bytes = src.read(4)
+                if not length_bytes:
+                    break
+                if len(length_bytes) < 4:
+                    raise ValueError("Truncated backup file chunk header")
+                length = struct.unpack(">I", length_bytes)[0]
+                token = src.read(length)
+                if len(token) < length:
+                    raise ValueError("Truncated backup file chunk body")
+                try:
+                    chunk = cipher.decrypt(token)
+                except InvalidToken as exc:
+                    raise ValueError("Backup decryption failed") from exc
+                dst.write(chunk)

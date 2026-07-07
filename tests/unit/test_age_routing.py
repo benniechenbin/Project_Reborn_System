@@ -2,10 +2,15 @@ from datetime import datetime
 
 import pytest
 
+from reborn_core.application.models import ModelMetadata
 from reborn_core.domains.brain.rag_engine import RAGEngine
 
 
 class StubLLM:
+    @property
+    def model_metadata(self) -> ModelMetadata:
+        return ModelMetadata(provider="mock", model_name="stub-llm")
+
     def generate_response(self, messages, temperature=0.7):
         return "stub"
 

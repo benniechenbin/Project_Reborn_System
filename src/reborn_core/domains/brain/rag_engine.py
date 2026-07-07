@@ -19,15 +19,10 @@ class RAGEngine:
         self,
         vector_db: MemoryRetriever,
         app_settings: Settings,
-        llm_router: ChatModel | None = None,
+        llm_router: ChatModel,
         prompt_registry: PromptRegistry | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if llm_router is None:
-            from .llm_router import LLMRouter
-
-            llm_router = LLMRouter(app_settings=app_settings)
-
         self.llm_router = llm_router
         self.vector_db = vector_db
         self.prompt_registry = prompt_registry or get_prompt_registry()
@@ -134,7 +129,11 @@ class RAGEngine:
                 try:
                     loaded = json.loads(self.gap_file.read_text(encoding="utf-8"))
                     gaps = loaded if isinstance(loaded, list) else []
-                except Exception:
+                except json.JSONDecodeError as exc:
+                    logger.warning("Memory gaps log file corrupted, resetting: {}", exc)
+                    gaps = []
+                except OSError as exc:
+                    logger.warning("Could not read memory gaps log file: {}", exc)
                     gaps = []
 
             # 只保留最近 100 条记录

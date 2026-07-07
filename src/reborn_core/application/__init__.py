@@ -5,6 +5,7 @@ from reborn_core.application.models import (
     IdentitySnapshotStatus,
     InterviewMode,
     InterviewResult,
+    SyncHistoryEntry,
     SyncMetrics,
 )
 from reborn_core.application.services import (
@@ -20,6 +21,7 @@ __all__ = [
     "InterviewMode",
     "InterviewResult",
     "InterviewService",
+    "SyncHistoryEntry",
     "SyncMetrics",
     "SyncService",
 ]

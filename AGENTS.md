@@ -28,7 +28,7 @@ Project Reborn（数字生命引擎）的最终目标是一个数字陪伴系统
 
 * `src/reborn_core/domains/`：领域模型与核心业务规则。
 * `src/reborn_core/application/`：应用用例、服务编排和业务流程。
-* `src/reborn_core/infrastructure/`：数据库、向量库、LLM、文件系统等外部资源实现。
+* `src/reborn_core/infrastructure/`：数据库、向量库、LLM、文件系统等外部资源实现。为维持业务边界对齐（认知对齐，防止组件杂乱），基础设施层的子目录结构应尽量与 domains 层子目录保持 1:1 镜像关系（例如：`domains/brain/` 对应 `infrastructure/brain/`）。
 * `src/reborn_core/interfaces/`：CLI、Streamlit、API、UI 等表现层入口。
 * `src/reborn_core/container.py`：依赖装配与核心服务构建。
 * `src/reborn_core/lifecycle.py`：启动、关闭、资源释放等生命周期管理。

@@ -15,10 +15,8 @@ __all__ = [
     "AVATAR_RAG_FRAMEWORK",
     "CREATOR_INTERVIEW_PROMPT",
     "IDENTITY_CONSOLIDATION_PROMPT",
-    "LLMRouter",
     "MEMORY_EXTRACTION_PROMPT",
     "RAGEngine",
-    "STTEngine",
     "STORY_EXTRACTION_PROMPT",
     "STORY_INTERVIEW_PROMPT",
 ]
@@ -28,16 +26,8 @@ def __getattr__(name: str):
     if name in _LEGACY_PROMPT_EXPORTS:
         prompts = import_module(f"{__name__}.prompts")
         return getattr(prompts, name)
-    if name == "LLMRouter":
-        from .llm_router import LLMRouter
-
-        return LLMRouter
     if name == "RAGEngine":
         from .rag_engine import RAGEngine
 
         return RAGEngine
-    if name == "STTEngine":
-        from .stt_engine import STTEngine
-
-        return STTEngine
     raise AttributeError(name)

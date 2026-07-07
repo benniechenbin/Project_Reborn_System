@@ -2,8 +2,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from unittest.mock import MagicMock
 
+from reborn_core.application.models import ModelMetadata
 from reborn_core.domains.brain.rag_engine import RAGEngine
-from reborn_core.domains.brain.llm_router import LLMRouter
+from reborn_core.infrastructure.brain.llm_router import LLMRouter
 from reborn_core.domains.brain.prompt_registry import get_prompt_registry
 
 
@@ -26,6 +27,10 @@ class Memory:
 class CapturingLLM:
     def __init__(self):
         self.messages = []
+
+    @property
+    def model_metadata(self) -> ModelMetadata:
+        return ModelMetadata(provider="mock", model_name="capturing-llm")
 
     def generate_response(self, messages, temperature=0.7):
         self.messages = messages

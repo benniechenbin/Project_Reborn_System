@@ -49,7 +49,7 @@ class Container:
 
     @cached_property
     def llm_router(self):
-        from reborn_core.domains.brain.llm_router import LLMRouter
+        from reborn_core.infrastructure.brain.llm_router import LLMRouter
 
         return LLMRouter(app_settings=self.settings)
 
@@ -113,7 +113,7 @@ class Container:
 
     @cached_property
     def stt_engine(self):
-        from reborn_core.domains.brain.stt_engine import STTEngine
+        from reborn_core.infrastructure.brain.stt_engine import STTEngine
 
         return STTEngine(app_settings=self.settings)
 

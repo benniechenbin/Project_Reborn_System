@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
-from reborn_core.application.models import SyncMetrics
+from reborn_core.application.models import SyncHistoryEntry, SyncMetrics
 from reborn_core.application.ports import (
     AssetScannerPort,
     RetrievalGenerationPort,
@@ -41,3 +41,6 @@ class SyncService:
         )
         self.history_repository.save_sync_record(metrics.as_dict())
         return metrics
+
+    def list_history(self) -> list[SyncHistoryEntry]:
+        return self.history_repository.list_sync_history()

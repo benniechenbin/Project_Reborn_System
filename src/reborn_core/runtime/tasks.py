@@ -44,6 +44,8 @@ class TaskRepository(Protocol):
 
     def get_task(self, task_id: str) -> TaskRecord | None: ...
 
+    def has_active_task_of_kind(self, kind: str) -> bool: ...
+
 
 class BackgroundTaskRunner:
     """具有持久化状态记录和显式生命周期的进程内工作器。"""
@@ -70,6 +72,9 @@ class BackgroundTaskRunner:
             executor.shutdown(wait=wait, cancel_futures=False)
 
     def submit(self, kind: str, operation: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
+        if self.repository.has_active_task_of_kind(kind):
+            raise ValueError(f"A background task of kind '{kind}' is already running")
+
         task_id = uuid.uuid4().hex
         now = datetime.now(UTC).isoformat()
         self.repository.create_task(

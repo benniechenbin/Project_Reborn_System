@@ -41,6 +41,14 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 所有入口必须使用 `build_app().start()` 或 `lifespan()`。生命周期副作用只能由
 `reborn_core.lifecycle` 管理，项目不再保留第二套启动入口。
 
+### 目录与命名空间结构规范 (Directory & Namespace Layout Rules)
+
+为了保持系统各层级在业务概念上的高度内聚与对齐（认知对齐，避免跨子域的技术组件耦合），本项目遵循以下布局原则：
+
+1. **子域 1:1 镜像关系**：在 `infrastructure/` 层级中，其内部子目录应尽量与 `domains/` 的业务子域进行 1:1 的镜像结构（例如：脑部域的领域逻辑位于 `domains/brain/`，则其具体的技术适配器/客户端实现应位于 `infrastructure/brain/`）。
+2. **便于垂直切片（Vertical Slice）**：这有助于降低心智检索负担，并在未来需要将系统模块化或微服务化拆分时，能以业务子域为边界进行干净的解耦。
+3. **通用基础设施扁平化**：对于跨多个子域的、扁平的通用基础设施（如 `backup.py` 或公共数据库管理），可以直接放置在 `infrastructure/` 的根部。
+
 ## 3. 已落地的关键流程
 
 ### 生命周期

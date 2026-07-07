@@ -67,6 +67,34 @@ def test_save_sync_record(db_manager):
         assert row["generation_id"] == "gen_123"
 
 
+def test_list_sync_history_returns_ordered_entries(db_manager):
+    db_manager.save_sync_record(
+        {
+            "sync_time": "2026-01-02T00:00:00+00:00",
+            "audio_duration": 2.5,
+            "notes_count": 2,
+            "word_count": 20,
+            "generation_id": "gen_2",
+        }
+    )
+    db_manager.save_sync_record(
+        {
+            "sync_time": "2026-01-01T00:00:00+00:00",
+            "audio_duration": 1.5,
+            "notes_count": 1,
+            "word_count": 10,
+            "generation_id": "gen_1",
+        }
+    )
+
+    history = db_manager.list_sync_history()
+
+    assert [entry.generation_id for entry in history] == ["gen_1", "gen_2"]
+    assert history[0].audio_duration == 1.5
+    assert history[0].notes_count == 1
+    assert history[0].word_count == 10
+
+
 def test_identity_snapshot_lifecycle(db_manager):
     snapshot = IdentitySnapshot(
         snapshot_id="snap_1",

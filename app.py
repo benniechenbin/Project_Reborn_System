@@ -7,19 +7,27 @@ import streamlit as st
 from audio_recorder_streamlit import audio_recorder
 
 from reborn_core.application import InterviewMode
-from reborn_core.lifecycle import build_app
+from reborn_core.interfaces.streamlit.runtime import (
+    CachedRebornApp,
+    is_cached_app_valid,
+    register_cached_app,
+    streamlit_cache_token,
+)
+from reborn_core.lifecycle import RebornApp, build_app
 from reborn_core.observability import logger
 from reborn_core.runtime import TaskStatus
 
 st.set_page_config(page_title="Project Reborn", layout="wide", initial_sidebar_state="expanded")
 
 
-@st.cache_resource
-def get_reborn_app():
-    return build_app().start(show_startup_banner=False)
+@st.cache_resource(validate=is_cached_app_valid)
+def get_reborn_app() -> CachedRebornApp[RebornApp]:
+    app = build_app().start(show_startup_banner=False)
+    return register_cached_app(CachedRebornApp(app=app, token=streamlit_cache_token()))
 
 
-app = get_reborn_app()
+cached_app = get_reborn_app()
+app = cached_app.app
 container = app.container
 
 if "creator_chat" not in st.session_state:
@@ -75,8 +83,7 @@ def task_result(state_key: str, label: str) -> Any | None:
 @st.cache_data(ttl=5)
 def load_sync_history() -> pd.DataFrame:
     try:
-        with container.db_manager.get_connection() as conn:
-            return pd.read_sql_query("SELECT * FROM sync_history ORDER BY sync_time ASC", conn)
+        return pd.DataFrame(entry.as_dict() for entry in container.sync_service.list_history())
     except Exception:
         logger.exception("Could not load sync history")
         return pd.DataFrame()

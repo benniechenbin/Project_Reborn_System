@@ -1,7 +1,12 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
-from reborn_core.application.models import IdentitySnapshot, IdentitySnapshotStatus, ModelMetadata
+from reborn_core.application.models import (
+    IdentitySnapshot,
+    IdentitySnapshotStatus,
+    ModelMetadata,
+    SyncHistoryEntry,
+)
 from reborn_core.security.access import AccessAction, AccessContext
 
 
@@ -80,3 +85,9 @@ class MemoryRetriever(Protocol):
 
 class SyncHistoryRepository(Protocol):
     def save_sync_record(self, metrics: dict[str, float | int | str | None]) -> None: ...
+
+    def list_sync_history(self) -> list[SyncHistoryEntry]: ...
+
+
+class SpeechToTextPort(Protocol):
+    def transcribe_audio_bytes(self, audio_bytes: bytes) -> str: ...

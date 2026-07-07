@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pytest
 
 from reborn_core.application import IdentitySnapshotStatus, InterviewMode
-from reborn_core.application.models import ModelMetadata
+from reborn_core.application.models import ModelMetadata, SyncHistoryEntry
 from reborn_core.application.services import (
     IdentityGovernanceService,
     InterviewService,
@@ -166,9 +166,21 @@ class StubGenerations:
 class StubHistory:
     def __init__(self):
         self.records = []
+        self.history = [
+            SyncHistoryEntry(
+                sync_time="2026-01-01T00:00:00+00:00",
+                audio_duration=1.5,
+                notes_count=1,
+                word_count=10,
+                generation_id="generation-1",
+            )
+        ]
 
     def save_sync_record(self, metrics):
         self.records.append(metrics)
+
+    def list_sync_history(self):
+        return self.history
 
 
 def test_sync_keeps_existing_generation_when_no_documents():
@@ -190,6 +202,13 @@ def test_sync_records_activated_generation():
 
     assert result.generation_id == "generation-2"
     assert history.records[0]["generation_id"] == "generation-2"
+
+
+def test_sync_service_lists_history_from_repository():
+    history = StubHistory()
+    service = SyncService(StubScanner(), lambda: [], StubGenerations(), history)
+
+    assert service.list_history() == history.history
 
 
 def test_interview_rejects_empty_transcript(test_settings):

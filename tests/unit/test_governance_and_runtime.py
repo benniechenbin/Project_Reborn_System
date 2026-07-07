@@ -64,6 +64,30 @@ def test_background_task_failure_after_pruning_has_clear_error(test_settings):
     runner.shutdown()
 
 
+def test_background_task_runner_prevents_duplicates(test_settings):
+    db = migrated_db(test_settings)
+    runner = BackgroundTaskRunner(db, max_workers=1)
+
+    def slow_task():
+        time.sleep(0.5)
+        return "done"
+
+    # Start a slow running task
+    task_id1 = runner.submit("slow", slow_task)
+
+    # Submitting another task of the same kind should fail immediately
+    with pytest.raises(ValueError, match="A background task of kind 'slow' is already running"):
+        runner.submit("slow", lambda: "another")
+
+    # Submitting a task of a different kind should succeed
+    task_id2 = runner.submit("fast", lambda: "ok")
+    assert runner.result(task_id2) == "ok"
+
+    # Wait for the first task to finish
+    assert runner.result(task_id1) == "done"
+    runner.shutdown()
+
+
 def test_encrypted_backup_and_recovery_drill(test_settings):
     key = Fernet.generate_key().decode("ascii")
     settings = test_settings.model_copy(

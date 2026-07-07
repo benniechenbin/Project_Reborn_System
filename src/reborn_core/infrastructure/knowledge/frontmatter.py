@@ -1,6 +1,8 @@
 import re
 import yaml
 
+from reborn_core.observability import logger
+
 
 def parse_frontmatter(content: str) -> dict[str, str | list[str]]:
     """提取摄入流水线需要使用的少量元数据。"""
@@ -42,8 +44,9 @@ def parse_frontmatter(content: str) -> dict[str, str | list[str]]:
                     .replace("'", "")
                 )
                 metadata["tags"] = [tag.strip() for tag in raw.split(",") if tag.strip()]
-    except Exception:
-        # 解析失败时使用默认元数据
-        pass
+    except yaml.YAMLError as exc:
+        logger.warning("Obsidian frontmatter YAML parsing failed: {}", exc)
+    except Exception as exc:
+        logger.exception("Unexpected error parsing Obsidian frontmatter: {}", exc)
 
     return metadata

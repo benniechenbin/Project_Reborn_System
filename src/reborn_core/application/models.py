@@ -86,3 +86,21 @@ class SyncMetrics:
             "generation_id": self.generation_id,
             "sync_time": self.sync_time.isoformat(),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class SyncHistoryEntry:
+    sync_time: str
+    audio_duration: float
+    notes_count: int
+    word_count: int
+    generation_id: str | None = None
+
+    def as_dict(self) -> dict[str, float | int | str | None]:
+        return {
+            "sync_time": self.sync_time,
+            "audio_duration": self.audio_duration,
+            "notes_count": self.notes_count,
+            "word_count": self.word_count,
+            "generation_id": self.generation_id,
+        }

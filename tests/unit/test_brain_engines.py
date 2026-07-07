@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
-from reborn_core.domains.brain.llm_router import LLMRouter
-from reborn_core.domains.brain.stt_engine import STTEngine
+from reborn_core.infrastructure.brain.llm_router import LLMRouter
+from reborn_core.infrastructure.brain.stt_engine import STTEngine
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def test_llm_router_does_not_log_think_content(test_settings, monkeypatch):
     ].message.content = "<think>private reasoning should stay private</think>Hello world"
     client.chat.completions.create.return_value = mock_response
     logger_mock = MagicMock()
-    monkeypatch.setattr("reborn_core.domains.brain.llm_router.logger", logger_mock)
+    monkeypatch.setattr("reborn_core.infrastructure.brain.llm_router.logger", logger_mock)
 
     router = LLMRouter(app_settings=test_settings, client=client)
     response = router.generate_response([{"role": "user", "content": "hello"}])
