@@ -275,7 +275,7 @@ class QdrantDBProvider(BaseVectorDB):
 
 
 def _metadata_to_json(metadata: dict[str, Any]) -> dict[str, Any]:
-    return {str(key): _jsonable_metadata_value(value) for key, value in metadata.items()}
+    return {key: _jsonable_metadata_value(value) for key, value in metadata.items()}
 
 
 def _jsonable_metadata_value(value: Any) -> Any:
