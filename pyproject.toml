@@ -27,12 +27,16 @@ dependencies = [
     "PyYAML>=6.0",
     "qdrant-client>=1.8.0",
     "rank-bm25>=0.2.2",
-    "sentence-transformers==2.6.1",
+    "sentence-transformers>=5.3.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "sentence-transformers==2.6.1; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "streamlit>=1.58.0",
     "tenacity>=8.2.0",
-    "torch==2.2.2",
-    "torchaudio==2.2.2",
-    "transformers==4.39.3",
+    "torch>=2.4; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "torch==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "torchaudio>=2.2.2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "torchaudio==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "transformers>=4.41.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "transformers==4.39.3; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
 
 [dependency-groups]
