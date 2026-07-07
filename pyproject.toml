@@ -9,6 +9,7 @@ description = "Project Reborn - Digital Immortality System"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
+    "llvmlite<=0.45.1",
     "audio-recorder-streamlit>=0.0.10",
     "cryptography>=42.0.0",
     "funasr>=1.0.0",
