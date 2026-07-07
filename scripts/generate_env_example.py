@@ -19,7 +19,7 @@ if str(SRC_DIR) not in sys.path:
 from reborn_core.config import Settings  # noqa: E402
 
 DEFAULT_OUTPUT_FILE = PROJECT_ROOT / ".env.example"
-EXCLUDED_FIELDS = {"base_dir", "log_format"}
+EXCLUDED_FIELDS = {"base_dir"}
 
 
 def _annotation_contains_secret(annotation: Any) -> bool:

@@ -7,14 +7,14 @@ from reborn_core.application.services import (
     InterviewService,
     SyncService,
 )
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 
 
 class Container:
     """显式、惰性地装配可替换的应用依赖。"""
 
     def __init__(self, app_settings: Settings | None = None) -> None:
-        self.settings = app_settings or get_settings()
+        self.settings = app_settings or Settings()
 
     @cached_property
     def db_manager(self):

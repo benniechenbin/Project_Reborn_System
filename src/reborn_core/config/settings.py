@@ -1,6 +1,5 @@
 import os
 import platform
-from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Any
 
@@ -262,8 +261,3 @@ class Settings(BaseSettings):
 
     def _resolve_path(self, path: Path) -> Path:
         return path if path.is_absolute() else self.base_dir / path
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()

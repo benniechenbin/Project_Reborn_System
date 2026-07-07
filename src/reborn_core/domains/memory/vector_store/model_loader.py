@@ -1,17 +1,16 @@
 import os
 import functools
+from pathlib import Path
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from reborn_core.config import get_settings
 from reborn_core.observability import logger
 
 
 @functools.lru_cache(maxsize=1)
-def load_embedding_model():
+def load_embedding_model(models_dir: Path, hf_mirror: str) -> SentenceTransformer:
     """加载 Embedding 模型：优先本地，缺失时自动下载并固化"""
-    settings = get_settings()
     model_name = "BAAI/bge-small-zh-v1.5"
     # 定义项目内的专属存放路径
-    local_model_path = settings.resolved_models_dir / "bge-small-zh-v1.5"
+    local_model_path = models_dir / "bge-small-zh-v1.5"
 
     try:
         if local_model_path.exists():
@@ -19,7 +18,7 @@ def load_embedding_model():
             return SentenceTransformer(str(local_model_path))
         else:
             logger.info(f"🌐 正在从镜像源首次下载 Embedding 模型: {model_name} ...")
-            os.environ["HF_ENDPOINT"] = settings.hf_mirror
+            os.environ["HF_ENDPOINT"] = hf_mirror
             model = SentenceTransformer(model_name)
 
             # 下载完毕后，立刻保存到项目的 local_models 目录
@@ -34,10 +33,9 @@ def load_embedding_model():
 
 
 @functools.lru_cache(maxsize=1)
-def load_reranker_model():
+def load_reranker_model(models_dir: Path, hf_mirror: str) -> CrossEncoder:
     """加载重排序模型 (支持本地固化)"""
-    settings = get_settings()
-    local_model_path = settings.resolved_models_dir / "bge-reranker-base"
+    local_model_path = models_dir / "bge-reranker-base"
 
     try:
         if local_model_path.exists():
@@ -45,7 +43,7 @@ def load_reranker_model():
             return CrossEncoder(str(local_model_path), max_length=512)
         else:
             logger.info("🌐 正在从镜像源执行首次下载 Reranker...")
-            os.environ["HF_ENDPOINT"] = settings.hf_mirror
+            os.environ["HF_ENDPOINT"] = hf_mirror
             model = CrossEncoder("BAAI/bge-reranker-base", max_length=512)
 
             local_model_path.mkdir(parents=True, exist_ok=True)

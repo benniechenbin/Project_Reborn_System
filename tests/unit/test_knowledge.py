@@ -78,7 +78,7 @@ def test_load_processed_knowledge_missing_folder(mock_vault):
 def test_load_processed_knowledge_invalid_path():
     from reborn_core.infrastructure.knowledge.pipeline import load_processed_knowledge
 
-    docs = load_processed_knowledge(vault_path=Path("/non/existent/path"))
+    docs = load_processed_knowledge(vault_path=Path("/non/existent/path"), target_folders=[])
     assert docs == []
 
 

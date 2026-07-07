@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from reborn_core.application.ports import ChatModel, MemoryRetriever
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.domains.brain.prompt_registry import PromptRegistry, get_prompt_registry
 from reborn_core.observability import logger
 
@@ -18,26 +18,27 @@ class RAGEngine:
     def __init__(
         self,
         vector_db: MemoryRetriever,
-        app_settings: Settings | None = None,
+        app_settings: Settings,
         llm_router: ChatModel | None = None,
         prompt_registry: PromptRegistry | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        settings = app_settings or get_settings()
         if llm_router is None:
             from .llm_router import LLMRouter
 
-            llm_router = LLMRouter(app_settings=settings)
+            llm_router = LLMRouter(app_settings=app_settings)
 
         self.llm_router = llm_router
         self.vector_db = vector_db
         self.prompt_registry = prompt_registry or get_prompt_registry()
         self.clock = clock or (lambda: datetime.now(UTC))
-        obsidian_root = settings.active_obsidian_path or (settings.base_dir / "data" / "memories")
+        obsidian_root = app_settings.active_obsidian_path or (
+            app_settings.base_dir / "data" / "memories"
+        )
 
-        self.core_memories_path = obsidian_root / settings.core_values_folder
-        self.reflections_path = self.core_memories_path / settings.ai_reflections_folder
-        self.gap_file = settings.resolved_memory_gaps_path
+        self.core_memories_path = obsidian_root / app_settings.core_values_folder
+        self.reflections_path = self.core_memories_path / app_settings.ai_reflections_folder
+        self.gap_file = app_settings.resolved_memory_gaps_path
         self._gap_lock = _MEMORY_GAP_LOCK
 
         (
@@ -46,7 +47,7 @@ class RAGEngine:
             self.child_nickname,
             self.child_gender,
             child_birthday,
-        ) = settings.require_avatar_profile()
+        ) = app_settings.require_avatar_profile()
         self.child_birthday = datetime.strptime(child_birthday, "%Y-%m-%d")
 
     def _calculate_child_age_and_tone(self) -> str:

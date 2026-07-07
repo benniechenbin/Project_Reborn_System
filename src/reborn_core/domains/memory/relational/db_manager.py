@@ -13,7 +13,7 @@ from reborn_core.application.models import (
     ModelMetadata,
     PromptMetadata,
 )
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.observability import logger
 from reborn_core.runtime import TaskRecord, TaskStatus
 
@@ -40,8 +40,12 @@ class DBManager:
         app_settings: Settings | None = None,
         db_path: Path | None = None,
     ) -> None:
-        settings = app_settings or get_settings()
-        self.db_path = db_path or settings.resolved_db_path
+        if db_path is not None:
+            self.db_path = db_path
+        else:
+            if app_settings is None:
+                raise ValueError("app_settings must be provided if db_path is not specified")
+            self.db_path = app_settings.resolved_db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
     def get_connection(self) -> sqlite3.Connection:

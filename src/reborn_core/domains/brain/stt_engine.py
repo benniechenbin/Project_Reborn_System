@@ -2,18 +2,17 @@ import os
 import tempfile
 from typing import Any
 
-from reborn_core.config import Settings, get_settings
+from reborn_core.config import Settings
 from reborn_core.observability import logger
 
 
 class STTEngine:
     def __init__(
         self,
-        app_settings: Settings | None = None,
+        app_settings: Settings,
         model: Any | None = None,
     ) -> None:
-        settings = app_settings or get_settings()
-        models_dir = settings.resolved_models_dir
+        models_dir = app_settings.resolved_models_dir
         models_dir.mkdir(parents=True, exist_ok=True)
         os.environ["MODELSCOPE_CACHE"] = str(models_dir)
 
