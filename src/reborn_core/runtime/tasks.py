@@ -92,6 +92,11 @@ class BackgroundTaskRunner:
                 raise RuntimeError("BackgroundTaskRunner has not been started")
             future = executor.submit(self._run, task_id, operation, args, kwargs)
             self._futures[task_id] = future
+
+        def discard_completed_future(completed: Future[Any]) -> None:
+            self._discard_future(task_id, completed)
+
+        future.add_done_callback(discard_completed_future)
         return task_id
 
     def get_task(self, task_id: str) -> TaskRecord | None:
@@ -100,9 +105,28 @@ class BackgroundTaskRunner:
     def result(self, task_id: str) -> Any:
         with self._lock:
             future = self._futures.get(task_id)
-        if future is None:
+        if future is not None:
+            return future.result()
+
+        task = self.repository.get_task(task_id)
+        if task is None:
+            raise LookupError(f"Task result is not available: {task_id}")
+        if task.status is TaskStatus.FAILED:
+            detail = f": {task.error}" if task.error else ""
+            raise RuntimeError(f"Task failed{detail}")
+        if task.status in {TaskStatus.QUEUED, TaskStatus.RUNNING}:
             raise LookupError(f"Task result is not available in this process: {task_id}")
-        return future.result()
+        if task.result_json is None:
+            return None
+        try:
+            return json.loads(task.result_json)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Stored task result is not valid JSON: {task_id}") from exc
+
+    def _discard_future(self, task_id: str, future: Future[Any]) -> None:
+        with self._lock:
+            if self._futures.get(task_id) is future:
+                self._futures.pop(task_id, None)
 
     def _run(
         self,

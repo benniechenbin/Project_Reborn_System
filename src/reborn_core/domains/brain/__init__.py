@@ -1,17 +1,15 @@
-"""认知能力适配器与提示词。
+"""认知能力适配器与提示词兼容导出。"""
 
-重量级可选适配器采用惰性加载，因此导入提示词时不会下载模型，
-也不要求安装全部运行时可选依赖。
-"""
+from importlib import import_module
 
-from .prompts import (
-    AVATAR_RAG_FRAMEWORK,
-    CREATOR_INTERVIEW_PROMPT,
-    IDENTITY_CONSOLIDATION_PROMPT,
-    MEMORY_EXTRACTION_PROMPT,
-    STORY_EXTRACTION_PROMPT,
-    STORY_INTERVIEW_PROMPT,
-)
+_LEGACY_PROMPT_EXPORTS = {
+    "AVATAR_RAG_FRAMEWORK",
+    "CREATOR_INTERVIEW_PROMPT",
+    "IDENTITY_CONSOLIDATION_PROMPT",
+    "MEMORY_EXTRACTION_PROMPT",
+    "STORY_EXTRACTION_PROMPT",
+    "STORY_INTERVIEW_PROMPT",
+}
 
 __all__ = [
     "AVATAR_RAG_FRAMEWORK",
@@ -27,6 +25,9 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    if name in _LEGACY_PROMPT_EXPORTS:
+        prompts = import_module(f"{__name__}.prompts")
+        return getattr(prompts, name)
     if name == "LLMRouter":
         from .llm_router import LLMRouter
 

@@ -91,6 +91,19 @@ def test_asset_scanner_notes_and_words(mock_vault):
     assert words > 0
 
 
+def test_asset_scanner_can_limit_notes_to_target_folders(mock_vault):
+    vault_path, audio_dir = mock_vault
+    private_dir = vault_path / "99_Private"
+    private_dir.mkdir()
+    (private_dir / "diary.md").write_text("this should not be counted", encoding="utf-8")
+    scanner = AssetScanner(vault_path, audio_dir, target_folders=("02_Values",))
+
+    notes, words = scanner.count_notes_and_words()
+
+    assert notes == 1
+    assert words > 0
+
+
 def test_asset_scanner_audio_duration(mock_vault):
     vault_path, audio_dir = mock_vault
     scanner = AssetScanner(vault_path, audio_dir)

@@ -57,7 +57,7 @@ def _resolve_import_from(path: Path, node: ast.ImportFrom) -> str | None:
 
 
 def _imported_modules(path: Path) -> list[str]:
-    modules = []
+    modules: list[str] = []
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

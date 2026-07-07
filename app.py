@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
 
-from reborn_core.application import IdentitySnapshotStatus, InterviewMode
+from reborn_core.application import InterviewMode
 from reborn_core.lifecycle import build_app
 from reborn_core.observability import logger
 from reborn_core.runtime import TaskStatus
@@ -216,7 +216,9 @@ def render_identity_review() -> None:
             )
             st.write("来源：", ", ".join(snapshot.source_ids))
             if snapshot.parent_snapshot_id:
-                parent = container.db_manager.get_identity_snapshot(snapshot.parent_snapshot_id)
+                parent = container.identity_governance_service.get_snapshot(
+                    snapshot.parent_snapshot_id
+                )
                 if parent:
                     diff = "".join(
                         difflib.unified_diff(
@@ -312,9 +314,7 @@ with st.sidebar:
         ["资产同步", "灵魂采访", "身份审批", "语音速记", "陪伴测试", "治理"],
     )
     st.caption(f"生命周期：{'运行中' if app.started else '未启动'}")
-    st.caption(
-        f"待审身份：{len(container.db_manager.list_identity_snapshots(IdentitySnapshotStatus.PENDING_REVIEW))}"
-    )
+    st.caption(f"待审身份：{len(container.identity_governance_service.list_pending())}")
 
 {
     "资产同步": render_dashboard,

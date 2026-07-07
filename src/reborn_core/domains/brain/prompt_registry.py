@@ -1,10 +1,13 @@
 import hashlib
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Formatter
 from typing import Any
+
+import yaml
 
 
 class PromptRegistryError(ValueError):
@@ -144,39 +147,46 @@ def _load_template(path: Path) -> PromptTemplate:
     )
 
 
-def _split_frontmatter(raw: str, path: Path) -> tuple[dict[str, str], str]:
+def _split_frontmatter(raw: str, path: Path) -> tuple[dict[str, Any], str]:
     match = re.match(r"^---\s*\n(.*?)\n---\s*\n?(.*)$", raw, re.DOTALL)
     if not match:
         raise PromptRegistryError(f"Prompt missing YAML frontmatter: {path}")
-    metadata: dict[str, str] = {}
-    for line in match.group(1).splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if ":" not in line:
-            raise PromptRegistryError(f"Invalid frontmatter line in {path}: {line}")
-        key, value = line.split(":", 1)
-        metadata[key.strip()] = value.strip()
+    try:
+        loaded = yaml.safe_load(match.group(1))
+    except yaml.YAMLError as exc:
+        raise PromptRegistryError(f"Invalid YAML frontmatter in {path}: {exc}") from exc
+    if loaded is None:
+        loaded = {}
+    if not isinstance(loaded, dict):
+        raise PromptRegistryError(f"Prompt frontmatter must be a mapping: {path}")
+    metadata = {str(key): value for key, value in loaded.items()}
     return metadata, match.group(2)
 
 
-def _required_str(metadata: dict[str, str], key: str, path: Path) -> str:
-    value = metadata.get(key, "").strip().strip("\"'")
+def _required_str(metadata: Mapping[str, Any], key: str, path: Path) -> str:
+    raw_value = metadata.get(key)
+    value = "" if raw_value is None else str(raw_value).strip().strip("\"'")
     if not value:
         raise PromptRegistryError(f"Prompt {path} missing required frontmatter key: {key}")
     return value
 
 
-def _parse_list(value: str, path: Path, key: str) -> list[str]:
-    value = value.strip()
-    if value == "[]":
+def _parse_list(value: Any, path: Path, key: str) -> list[str]:
+    if value is None:
         return []
-    if not (value.startswith("[") and value.endswith("]")):
-        raise PromptRegistryError(f"Prompt {path} frontmatter key {key} must be an inline list")
-    items = value[1:-1].strip()
-    if not items:
-        return []
-    return [item.strip().strip("\"'") for item in items.split(",") if item.strip()]
+    if isinstance(value, list):
+        return [str(item).strip().strip("\"'") for item in value if str(item).strip()]
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized == "[]":
+            return []
+        if not (normalized.startswith("[") and normalized.endswith("]")):
+            raise PromptRegistryError(f"Prompt {path} frontmatter key {key} must be a list")
+        items = normalized[1:-1].strip()
+        if not items:
+            return []
+        return [item.strip().strip("\"'") for item in items.split(",") if item.strip()]
+    raise PromptRegistryError(f"Prompt {path} frontmatter key {key} must be a list")
 
 
 def _validate_template_fields(

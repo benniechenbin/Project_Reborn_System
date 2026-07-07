@@ -1,3 +1,5 @@
+import time
+
 from cryptography.fernet import Fernet
 import pytest
 
@@ -22,6 +24,43 @@ def test_background_task_status_is_persisted(test_settings):
 
     assert runner.result(task_id) == 5
     assert db.get_task(task_id).status is TaskStatus.SUCCEEDED
+    runner.shutdown()
+
+
+def test_background_task_result_survives_future_pruning(test_settings):
+    db = migrated_db(test_settings)
+    runner = BackgroundTaskRunner(db, max_workers=1)
+    task_id = runner.submit("payload", lambda: {"value": 5})
+
+    assert runner.result(task_id) == {"value": 5}
+    for _ in range(50):
+        if task_id not in runner._futures:
+            break
+        time.sleep(0.01)
+
+    assert task_id not in runner._futures
+    assert runner.result(task_id) == {"value": 5}
+    runner.shutdown()
+
+
+def test_background_task_failure_after_pruning_has_clear_error(test_settings):
+    db = migrated_db(test_settings)
+    runner = BackgroundTaskRunner(db, max_workers=1)
+
+    def fail():
+        raise ValueError("boom")
+
+    task_id = runner.submit("failure", fail)
+    with pytest.raises(ValueError, match="boom"):
+        runner.result(task_id)
+    for _ in range(50):
+        if task_id not in runner._futures:
+            break
+        time.sleep(0.01)
+
+    assert task_id not in runner._futures
+    with pytest.raises(RuntimeError, match="Task failed: boom"):
+        runner.result(task_id)
     runner.shutdown()
 
 

@@ -101,8 +101,19 @@ class RetrievalGenerationManager:
     def active_generation_id(self) -> str | None:
         if not self.pointer_path.exists():
             return None
-        payload = json.loads(self.pointer_path.read_text(encoding="utf-8"))
-        return str(payload["generation_id"])
+        try:
+            payload = json.loads(self.pointer_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Could not read active retrieval generation pointer: {}", exc)
+            return None
+        if not isinstance(payload, dict):
+            logger.warning("Active retrieval generation pointer is not a JSON object")
+            return None
+        generation_id = payload.get("generation_id")
+        if not isinstance(generation_id, str) or not generation_id.strip():
+            logger.warning("Active retrieval generation pointer has no valid generation_id")
+            return None
+        return generation_id
 
     def active_retriever(self) -> GenerationVectorStore | NullMemoryRetriever:
         with self._lock:

@@ -8,7 +8,7 @@ import uuid
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import IO, Protocol
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -16,6 +16,8 @@ from reborn_core.config import Settings
 from reborn_core.core.exceptions import ConfigurationError
 from reborn_core.security import AccessAction, AccessContext
 from reborn_core.security.access import AccessPolicy
+
+HASH_CHUNK_SIZE = 64 * 1024
 
 
 class BackupRecordRepository(Protocol):
@@ -80,9 +82,12 @@ class BackupService:
         with zipfile.ZipFile(io.BytesIO(payload), "r") as archive:
             manifest = json.loads(archive.read("manifest.json"))
             for item in manifest["files"]:
-                content = archive.read(item["archive_path"])
-                if _sha256_bytes(content) != item["sha256"]:
+                with archive.open(item["archive_path"], "r") as member:
+                    digest, size = _sha256_stream(member)
+                if digest != item["sha256"]:
                     raise ValueError(f"Backup checksum mismatch: {item['archive_path']}")
+                if size != item["size"]:
+                    raise ValueError(f"Backup size mismatch: {item['archive_path']}")
         return {
             "backup_id": manifest["backup_id"],
             "verified": True,
@@ -117,7 +122,7 @@ class BackupService:
         self.repository.save_backup_record(
             f"drill_{uuid.uuid4().hex[:12]}",
             str(path),
-            _sha256_bytes(path.read_bytes()),
+            _sha256_file(path),
             bool(result["encrypted"]),
             "recovery_drill_passed",
             detail=json.dumps(result, ensure_ascii=False),
@@ -153,13 +158,13 @@ class BackupService:
         output = io.BytesIO()
         with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for source, archive_path in files:
-                content = source.read_bytes()
-                archive.writestr(archive_path, content)
+                digest, size = _file_digest_and_size(source)
+                archive.write(source, archive_path)
                 manifest_files.append(
                     {
                         "archive_path": archive_path,
-                        "sha256": _sha256_bytes(content),
-                        "size": len(content),
+                        "sha256": digest,
+                        "size": size,
                     }
                 )
             archive.writestr(
@@ -210,3 +215,22 @@ class BackupService:
 
 def _sha256_bytes(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    digest, _ = _file_digest_and_size(path)
+    return digest
+
+
+def _file_digest_and_size(path: Path) -> tuple[str, int]:
+    with path.open("rb") as handle:
+        return _sha256_stream(handle)
+
+
+def _sha256_stream(handle: IO[bytes]) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    size = 0
+    while chunk := handle.read(HASH_CHUNK_SIZE):
+        digest.update(chunk)
+        size += len(chunk)
+    return digest.hexdigest(), size

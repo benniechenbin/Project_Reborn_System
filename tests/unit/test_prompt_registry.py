@@ -1,3 +1,6 @@
+import importlib
+import sys
+
 import pytest
 
 from reborn_core.domains.brain.prompt_registry import (
@@ -72,6 +75,37 @@ date: {date}
 
     assert "Hello 张三." in rendered.content
     assert "date: {date}" in rendered.content
+
+
+def test_prompt_registry_uses_yaml_frontmatter_for_lists_and_colons(tmp_path):
+    prompt_file = tmp_path / "sample.md"
+    prompt_file.write_text(
+        """---
+prompt_id: sample
+version: "2026-07-03:v1"
+role: system
+variables:
+  - name
+---
+Hello {name}.
+""",
+        encoding="utf-8",
+    )
+
+    rendered = PromptRegistry(tmp_path).render("sample", {"name": "张三"})
+
+    assert rendered.version == "2026-07-03:v1"
+    assert rendered.content == "Hello 张三."
+
+
+def test_brain_package_import_does_not_load_legacy_prompt_templates():
+    sys.modules.pop("reborn_core.domains.brain.prompts", None)
+    sys.modules.pop("reborn_core.domains.brain", None)
+
+    brain = importlib.import_module("reborn_core.domains.brain")
+
+    assert "CREATOR_INTERVIEW_PROMPT" in brain.__all__
+    assert "reborn_core.domains.brain.prompts" not in sys.modules
 
 
 def test_prompt_registry_rejects_unknown_braces_outside_fenced_code_blocks(tmp_path):

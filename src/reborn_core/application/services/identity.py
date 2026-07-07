@@ -52,6 +52,9 @@ class IdentityGovernanceService:
     def list_pending(self, limit: int = 20) -> list[IdentitySnapshot]:
         return self.snapshots.list_identity_snapshots(IdentitySnapshotStatus.PENDING_REVIEW, limit)
 
+    def get_snapshot(self, snapshot_id: str) -> IdentitySnapshot | None:
+        return self.snapshots.get_identity_snapshot(snapshot_id)
+
     def approve(
         self,
         snapshot_id: str,

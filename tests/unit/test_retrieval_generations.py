@@ -75,3 +75,21 @@ def test_each_generation_uses_an_isolated_index_path(tmp_path):
     assert len(index_paths) == 2
     assert index_paths[0] != index_paths[1]
     assert all(path.name == "index" for path in index_paths)
+
+
+def test_corrupt_active_generation_pointer_falls_back_to_null_retriever(tmp_path):
+    manager = RetrievalGenerationManager(tmp_path, lambda path: FakeStore(path), retention=3)
+    manager.initialize()
+    manager.pointer_path.write_text("{not valid json", encoding="utf-8")
+
+    assert manager.active_generation_id() is None
+    assert manager.search("anything") == []
+
+
+def test_invalid_active_generation_pointer_shape_is_ignored(tmp_path):
+    manager = RetrievalGenerationManager(tmp_path, lambda path: FakeStore(path), retention=3)
+    manager.initialize()
+    manager.pointer_path.write_text('{"schema_version": 1}', encoding="utf-8")
+
+    assert manager.active_generation_id() is None
+    assert manager.search("anything") == []

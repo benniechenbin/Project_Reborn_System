@@ -125,7 +125,11 @@ class Container:
             self.settings.base_dir / "data" / "memories"
         )
         audio_path = self.settings.active_audio_path or (self.settings.base_dir / "data" / "audio")
-        scanner = AssetScanner(obsidian_path=obsidian_path, audio_path=audio_path)
+        scanner = AssetScanner(
+            obsidian_path=obsidian_path,
+            audio_path=audio_path,
+            target_folders=self.settings.memory_index_folders,
+        )
         return SyncService(
             scanner=scanner,
             knowledge_loader=lambda: load_processed_knowledge(
