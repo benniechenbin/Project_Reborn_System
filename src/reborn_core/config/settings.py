@@ -58,10 +58,6 @@ class Settings(BaseSettings):
         default=DEFAULT_APP_ENV,
         description="应用环境",
     )
-    creator_name: str | None = Field(
-        default=None,
-        description="家长/数字人原型的真实姓名或指定称谓",
-    )
     log_dir: Path = Field(
         default=Path("logs"),
         description="日志目录",
@@ -73,6 +69,11 @@ class Settings(BaseSettings):
     log_format: LogFormat = Field(
         default=DEFAULT_LOG_FORMAT,
         description="日志格式：auto 根据环境选择，pretty 为开发可读格式，json 为结构化日志。",
+    )
+
+    creator_name: str | None = Field(
+        default=None,
+        description="家长/数字人原型的真实姓名或指定称谓",
     )
 
     models_dir: Path = Field(default=Path("data/local_models"), description="本地模型目录")
