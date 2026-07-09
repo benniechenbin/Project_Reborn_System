@@ -18,10 +18,6 @@ ALLOWED_LEGACY_IMPORTS = {
         "domains/memory/relational/db_manager.py",
         "reborn_core.application.models",
     ),
-    (
-        "domains/services/interview_service.py",
-        "reborn_core.application.services.interview",
-    ),
 }
 
 

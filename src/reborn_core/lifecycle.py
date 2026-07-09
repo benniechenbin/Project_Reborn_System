@@ -67,6 +67,12 @@ class RebornApp:
         self.container.task_runner.shutdown(wait=True)
         logger.info("{} stopped", self.settings.app_name)
         shutdown_logger()
+        if self._atexit_registered:
+            try:
+                atexit.unregister(self.shutdown)
+            except Exception:
+                pass
+            self._atexit_registered = False
         self._started = False
 
 

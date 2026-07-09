@@ -124,6 +124,8 @@ class BackupService:
                         raise ValueError(f"Unsafe backup member path: {member.filename}")
                     archive.extract(member, drill_root)
             restored_db = drill_root / "sqlite" / "reborn.db"
+            if not restored_db.is_file():
+                raise ValueError("Backup archive is missing the database file 'sqlite/reborn.db'")
             conn = sqlite3.connect(restored_db)
             try:
                 integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
@@ -264,19 +266,26 @@ def _decrypt_stream(source_path: Path, target_path: Path, cipher: Fernet | None)
         if magic != STREAM_MAGIC:
             # Check if it is the old format (starts with standard Fernet token version or zip header PK\x03\x04)
             src.seek(0)
-            payload = src.read()
-            if source_path.name.endswith(".fernet") or (
-                cipher is not None and not payload.startswith(b"PK\x03\x04")
-            ):
+            header = src.read(4)
+            src.seek(0)
+
+            is_old_encrypted = source_path.name.endswith(".fernet") or (
+                cipher is not None and header != b"PK\x03\x04"
+            )
+
+            if is_old_encrypted:
                 if cipher is None:
                     raise ConfigurationError("加密器初始化失败，无法解密旧版备份。")
+                payload = src.read()
                 try:
                     decrypted = cipher.decrypt(payload)
                 except InvalidToken as exc:
                     raise ValueError("Backup decryption failed") from exc
                 target_path.write_bytes(decrypted)
             else:
-                target_path.write_bytes(payload)
+                with target_path.open("wb") as dst:
+                    while chunk := src.read(CHUNK_SIZE):
+                        dst.write(chunk)
             return
 
         if cipher is None:
