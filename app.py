@@ -249,13 +249,40 @@ def render_identity_review() -> None:
 
 def render_voice() -> None:
     st.title("语音速记")
-    audio_bytes = audio_recorder(text="点击录音 / 点击停止")
-    if audio_bytes and st.button("提交后台转写与提炼", type="primary"):
-        submit_task("voice_task", "voice_capture", container.process_voice_capture, audio_bytes)
-        st.rerun()
+    audio_bytes = audio_recorder(
+        text="点击录音 / 点击停止",
+        sample_rate=16000,
+        key="voice_recorder",
+    )
+    if audio_bytes and audio_bytes != st.session_state.get("voice_audio_bytes"):
+        st.session_state.voice_audio_bytes = audio_bytes
+        st.session_state.pop("voice_task", None)
+
+    voice_audio_bytes = st.session_state.get("voice_audio_bytes")
+    if voice_audio_bytes:
+        st.audio(voice_audio_bytes, format="audio/wav")
+        st.caption(f"已缓存录音：{len(voice_audio_bytes):,} bytes")
+
+    if st.button(
+        "提交后台转写与提炼",
+        type="primary",
+        disabled=not bool(voice_audio_bytes),
+    ):
+        try:
+            submit_task(
+                "voice_task",
+                "voice_capture",
+                container.process_voice_capture,
+                voice_audio_bytes,
+            )
+        except Exception as exc:
+            st.error(f"提交语音任务失败：{exc}")
+        else:
+            st.session_state.pop("voice_audio_bytes", None)
+            st.rerun()
     result = task_result("voice_task", "语音处理")
     if result is not None:
-        transcript = result["transcript"]
+        transcript = result.get("transcript", "") if isinstance(result, dict) else ""
         st.success("语音已转写，身份变化仍需人工审批。")
         st.write(transcript)
 

@@ -35,6 +35,12 @@ def test_env_example_uses_defaults_and_hides_secrets():
     assert "LOG_DIR=logs" in content
     assert "CREATOR_NAME=\n" in content
     assert "LLM_MODEL_NAME=deepseek-chat" in content
+    assert "STT_ENDPOINT=local" in content
+    assert "例如 https://api.openai.com/v1 切换云端转写。" in content
+    assert "STT_MODEL_NAME=paraformer-zh" in content
+    assert "STT_LOCAL_ENGINE=funasr" in content
+    assert "STT_PROVIDER=" not in content
+    assert "FUNASR_MODEL_NAME=" not in content
     assert "LLM_API_KEY=\n" in content
     assert "BACKUP_ENCRYPTION_KEY=\n" in content
     assert "BACKUP_REQUIRE_ENCRYPTION=true" in content

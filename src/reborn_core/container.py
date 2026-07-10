@@ -161,7 +161,9 @@ class Container:
     def process_voice_capture(self, audio_bytes: bytes):
         transcript = self.stt_engine.transcribe_audio_bytes(audio_bytes)
         if not transcript:
-            raise ValueError("No speech was recognized")
+            raise ValueError(
+                "没有识别到有效语音，请确认录音时长、麦克风权限以及 FunASR 本地模型缓存是否可用。"
+            )
         result = self.interview_service.process_interview(
             [{"role": "user", "content": f"Voice journal:\n{transcript}"}],
             InterviewMode.LIFE_STORY,

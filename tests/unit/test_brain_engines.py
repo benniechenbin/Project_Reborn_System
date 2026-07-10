@@ -1,5 +1,10 @@
-import pytest
+import os
+from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
+
+from reborn_core.core.exceptions import ConfigurationError, InfrastructureError
 from reborn_core.infrastructure.brain.llm_router import LLMRouter
 from reborn_core.infrastructure.brain.stt_engine import STTEngine
 
@@ -84,6 +89,42 @@ def test_stt_engine_transcribe(test_settings):
 
     assert result == "Hello world"
     mock_model.generate.assert_called_once()
+    call_kwargs = mock_model.generate.call_args.kwargs
+    assert call_kwargs["batch_size_s"] == 300
+    assert call_kwargs["disable_pbar"] is True
+    assert not Path(call_kwargs["input"]).exists()
+
+
+def test_stt_engine_sets_modelscope_cache_from_settings(test_settings, monkeypatch):
+    settings = test_settings.model_copy(update={"modelscope_cache_dir": Path("data/ms-cache")})
+    monkeypatch.delenv("MODELSCOPE_CACHE", raising=False)
+
+    STTEngine(app_settings=settings, model=MagicMock())
+
+    assert os.environ["MODELSCOPE_CACHE"] == str(settings.resolved_modelscope_cache_dir)
+    assert settings.resolved_modelscope_cache_dir.exists()
+
+
+def test_stt_engine_builds_funasr_model_from_settings(test_settings):
+    mock_model = MagicMock()
+    model_factory = MagicMock(return_value=mock_model)
+    settings = test_settings.model_copy(
+        update={
+            "stt_model_name": "custom-asr",
+            "funasr_vad_model_name": "custom-vad",
+            "funasr_punc_model_name": "custom-punc",
+        }
+    )
+
+    engine = STTEngine(app_settings=settings, model_factory=model_factory)
+
+    assert engine.model is mock_model
+    model_factory.assert_called_once_with(
+        model="custom-asr",
+        vad_model="custom-vad",
+        punc_model="custom-punc",
+        disable_update=True,
+    )
 
 
 def test_stt_engine_empty_input(test_settings):
@@ -91,11 +132,64 @@ def test_stt_engine_empty_input(test_settings):
     assert engine.transcribe_audio_bytes(b"") == ""
 
 
+def test_stt_engine_local_rejects_whisper_model_name(test_settings):
+    settings = test_settings.model_copy(update={"stt_model_name": "whisper-1"})
+
+    with pytest.raises(ConfigurationError, match="requires a FunASR model name"):
+        STTEngine(app_settings=settings, model=MagicMock())
+
+
+def test_stt_engine_local_whisper_engine_is_reserved(test_settings):
+    settings = test_settings.model_copy(
+        update={"stt_local_engine": "whisper", "stt_model_name": "small"}
+    )
+
+    with pytest.raises(ConfigurationError, match="reserved for future local Whisper support"):
+        STTEngine(app_settings=settings, model=MagicMock())
+
+
 def test_stt_engine_failure_handling(test_settings):
     mock_model = MagicMock()
     mock_model.generate.side_effect = Exception("Model crash")
 
     engine = STTEngine(app_settings=test_settings, model=mock_model)
-    result = engine.transcribe_audio_bytes(b"dummy data")
 
-    assert result == ""
+    with pytest.raises(InfrastructureError, match="本地语音转写失败: Model crash"):
+        engine.transcribe_audio_bytes(b"dummy data")
+
+
+def test_stt_engine_cloud_requires_api_key(test_settings):
+    settings = test_settings.model_copy(
+        update={
+            "stt_endpoint": "https://api.openai.com/v1",
+            "stt_api_key": None,
+            "stt_model_name": "whisper-1",
+        }
+    )
+
+    with pytest.raises(ConfigurationError, match="Cloud STT requires STT_API_KEY"):
+        STTEngine(app_settings=settings)
+
+
+def test_stt_engine_cloud_transcribes_with_openai_compatible_client(test_settings):
+    transcription_client = MagicMock()
+    transcription_client.audio.transcriptions.create.return_value = MagicMock(
+        text="Cloud transcript"
+    )
+    settings = test_settings.model_copy(
+        update={
+            "stt_endpoint": "https://api.openai.com/v1",
+            "stt_api_key": "sk-test",
+            "stt_model_name": "whisper-1",
+        }
+    )
+
+    engine = STTEngine(app_settings=settings, transcription_client=transcription_client)
+    result = engine.transcribe_audio_bytes(b"dummy audio data")
+
+    assert result == "Cloud transcript"
+    transcription_client.audio.transcriptions.create.assert_called_once()
+    call_kwargs = transcription_client.audio.transcriptions.create.call_args.kwargs
+    assert call_kwargs["model"] == "whisper-1"
+    assert call_kwargs["file"].closed
+    assert not Path(call_kwargs["file"].name).exists()

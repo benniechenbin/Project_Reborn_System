@@ -27,6 +27,7 @@ BASE_DIR = find_project_root(Path(__file__).resolve())
 LogFormat = Literal["auto", "pretty", "json"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 AppEnv = Literal["development", "dev", "test", "production", "prod"]
+STTLocalEngine = Literal["funasr", "whisper"]
 
 
 # 默认值（必须在 class 外部定义，才能被 Field 引用）
@@ -128,11 +129,34 @@ class Settings(BaseSettings):
     llm_api_key: SecretStr | None = Field(default=None, description="大语言模型 API 密钥")
     llm_model_name: str = Field(default="deepseek-chat", description="大语言模型名称")
 
-    stt_base_url: str = Field(
-        default="https://api.openai.com/v1", description="语音转文字 API 基础地址"
+    stt_endpoint: str = Field(
+        default="local",
+        description=(
+            "STT 入口；设为 local 使用本地 FunASR，或填写 OpenAI-compatible base URL，"
+            "例如 https://api.openai.com/v1 切换云端转写。"
+        ),
     )
     stt_api_key: SecretStr | None = Field(default=None, description="语音转文字 API 密钥")
-    stt_model_name: str = Field(default="whisper-1", description="语音转文字模型名称")
+    stt_model_name: str = Field(
+        default="paraformer-zh",
+        description="语音转文字模型名称；本地模式为 FunASR 主模型名，云端模式为转写模型名",
+    )
+    stt_local_engine: STTLocalEngine = Field(
+        default="funasr",
+        description="本地 STT 引擎；当前实现 funasr，whisper 为预留配置",
+    )
+    funasr_vad_model_name: str | None = Field(
+        default="fsmn-vad",
+        description="FunASR VAD 模型名称；留空则禁用 VAD",
+    )
+    funasr_punc_model_name: str | None = Field(
+        default="ct-punc",
+        description="FunASR 标点模型名称；留空则禁用标点恢复",
+    )
+    modelscope_cache_dir: Path = Field(
+        default=Path("data/local_models"),
+        description="ModelScope/FunASR 模型缓存目录",
+    )
 
     child_name: str | None = Field(default=None, description="孩子姓名")
     child_nickname: str | None = Field(default=None, description="孩子昵称")
@@ -171,6 +195,8 @@ class Settings(BaseSettings):
         "obsidian_vault_path_win",
         "audio_data_path_mac",
         "audio_data_path_win",
+        "funasr_vad_model_name",
+        "funasr_punc_model_name",
         mode="before",
     )
     @classmethod
@@ -220,6 +246,10 @@ class Settings(BaseSettings):
     @property
     def resolved_legacy_activation_file(self) -> Path:
         return self._resolve_path(self.legacy_activation_file)
+
+    @property
+    def resolved_modelscope_cache_dir(self) -> Path:
+        return self._resolve_path(self.modelscope_cache_dir)
 
     @property
     def memory_index_folders(self) -> tuple[str, ...]:
