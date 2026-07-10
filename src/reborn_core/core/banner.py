@@ -28,37 +28,48 @@ def show_banner(
     依赖:
     - pyfiglet: ASCII 艺术生成库 (可选)
     """
-    # 顶部留白，彻底与上一条日志隔开
-    print("\n" + "=" * 60)
-
     try:
         import pyfiglet
 
+        # 1. 先生成内容
         banner_text = pyfiglet.figlet_format(text, font=font, width=width, justify=justify)
+
+        # 2. 动态计算实际输出的最大宽度（去除末尾可能的多余空行）
+        lines = banner_text.rstrip("\n").split("\n")
+        actual_width = max((len(line) for line in lines), default=60)
+
+        # 3. 按实际宽度打印顶部边框
+        print("\n" + "=" * actual_width)
+
+        # 4. 打印带颜色或不带颜色的内容
         if color:
             print(f"\033[1m\033[36m{banner_text}\033[0m", end="")
         else:
             print(banner_text, end="")
 
+        # 5. 打印底部边框
+        print("=" * actual_width + "\n")
+
     except ImportError:
-        print(f"🚀 {text}")
+        # 如果没有安装 pyfiglet，降级显示时也做个动态自适应
+        fallback_text = f"🚀 {text}"
+        actual_width = len(fallback_text) + 4  # 加点 padding 更美观
+        print("\n" + "=" * actual_width)
+        print(f"  {fallback_text}")
+        print("=" * actual_width + "\n")
 
-    print("=" * 60 + "\n")
 
-
-# 如果你想测试字体，可以直接运行这个文件
+# 测试区
 if __name__ == "__main__":
-    # 基础用法
     print("=== 基础示例 ===")
     show_banner("AGENT LAB", font="slant")
 
-    # 自定义参数示例
     print("\n=== 自定义样式示例 ===")
     show_banner("PYTHON", font="block", width=60, justify="center", color=True)
 
-    # 不同字体对比
     print("\n=== 不同字体对比 ===")
     test_fonts = ["standard", "digital", "bubble"]
     for fnt in test_fonts:
         print(f"\n字体: {fnt}")
+        # 这里故意把 width 设窄，你会发现等号也会聪明地跟着变短
         show_banner("TEST", font=fnt, width=40)
