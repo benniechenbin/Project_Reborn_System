@@ -6,11 +6,11 @@
 
 - **RAG 引擎核心逻辑完善：** 完成 `rag_engine.py` 的沙盒交互打通。
 
-- **表现层解耦：** 将现有的 Streamlit 页面代码从项目根目录移至 `src/reborn_core/interfaces/streamlit/`，实现纯粹的职责分离。
+- **已完成｜表现层解耦：** Streamlit 页面代码已移至 `src/reborn_core/interfaces/streamlit/`，根入口仅保留兼容启动职责。
 
 - **规范检索代次注入：** RAG 引擎通过容器显式注入活动检索代次适配器，彻底移除领域层直接实例化或依赖默认静态路径的备用路径。
 
-- **拆分单体 DBManager：** 将 `DBManager` 按身份快照、后台任务、同步历史、备份与审计仓储拆分为独立的 Repository 接口和适配器，引入独立的版本化迁移运行器。
+- **已完成｜拆分单体 DBManager：** 身份快照、后台任务、同步历史、备份与审计已拆分为独立 Repository adapter，并使用独立版本化迁移运行器。
 
 
 #### Phase 2: 数据安全与数据模型演进（高优先级）

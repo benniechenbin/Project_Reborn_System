@@ -14,10 +14,6 @@ ALLOWED_LEGACY_IMPORTS = {
         "domains/brain/rag_engine.py",
         "reborn_core.application.ports",
     ),
-    (
-        "domains/memory/relational/db_manager.py",
-        "reborn_core.application.models",
-    ),
 }
 
 

@@ -1,11 +1,7 @@
 import json
 import sqlite3
-from collections.abc import Generator
-from contextlib import contextmanager
 from datetime import UTC, datetime
-from pathlib import Path
-from types import TracebackType
-from typing import Any, Literal
+from typing import Any
 
 from reborn_core.application.models import (
     IdentitySnapshot,
@@ -14,97 +10,19 @@ from reborn_core.application.models import (
     PromptMetadata,
     SyncHistoryEntry,
 )
-from reborn_core.config import Settings
-from reborn_core.observability import logger
 from reborn_core.runtime import TaskRecord, TaskStatus
 
-
-class ClosingConnection(sqlite3.Connection):
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> Literal[False]:
-        try:
-            super().__exit__(exc_type, exc_value, traceback)
-        finally:
-            self.close()
-        return False
+from .core import SQLiteDatabase
 
 
-class DBManager:
-    """提供仅向前迁移数据库结构的 SQLite 仓储。"""
+class SQLiteSyncHistoryRepository:
+    """Persists knowledge synchronization metrics in SQLite."""
 
-    def __init__(
-        self,
-        app_settings: Settings | None = None,
-        db_path: Path | None = None,
-    ) -> None:
-        if db_path is not None:
-            self.db_path = db_path
-        else:
-            if app_settings is None:
-                raise ValueError("app_settings must be provided if db_path is not specified")
-            self.db_path = app_settings.resolved_db_path
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-    def get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(
-            self.db_path,
-            check_same_thread=False,
-            timeout=30,
-            factory=ClosingConnection,
-        )
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("PRAGMA busy_timeout = 30000")
-        conn.execute("PRAGMA journal_mode = WAL")
-        return conn
-
-    @contextmanager
-    def transaction(self) -> Generator[sqlite3.Connection, None, None]:
-        with self.get_connection() as conn:
-            try:
-                conn.execute("BEGIN IMMEDIATE")
-                yield conn
-                conn.commit()
-            except Exception:
-                conn.rollback()
-                raise
-
-    def migrate(self) -> None:
-        migrations = (
-            self._migration_001_sync_history,
-            self._migration_002_identity_snapshots,
-            self._migration_003_background_tasks,
-            self._migration_004_backup_and_audit,
-        )
-        with self.get_connection() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS schema_migrations (
-                    version INTEGER PRIMARY KEY,
-                    applied_at TEXT NOT NULL
-                )
-                """
-            )
-            applied = {
-                row["version"] for row in conn.execute("SELECT version FROM schema_migrations")
-            }
-            for version, migration in enumerate(migrations, start=1):
-                if version in applied:
-                    continue
-                migration(conn)
-                conn.execute(
-                    "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
-                    (version, datetime.now(UTC).isoformat()),
-                )
-            conn.commit()
-        logger.info("SQLite migrations are current at version {}", len(migrations))
+    def __init__(self, database: SQLiteDatabase) -> None:
+        self.database = database
 
     def save_sync_record(self, metrics: dict[str, float | int | str | None]) -> None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO sync_history
@@ -122,7 +40,7 @@ class DBManager:
             conn.commit()
 
     def list_sync_history(self) -> list[SyncHistoryEntry]:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             rows = conn.execute(
                 """
                 SELECT sync_time, audio_duration, notes_count, word_count, generation_id
@@ -141,8 +59,15 @@ class DBManager:
             for row in rows
         ]
 
+
+class SQLiteIdentitySnapshotRepository:
+    """Persists governed identity snapshots in SQLite."""
+
+    def __init__(self, database: SQLiteDatabase) -> None:
+        self.database = database
+
     def create_identity_snapshot(self, snapshot: IdentitySnapshot) -> None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO identity_snapshots (
@@ -176,7 +101,7 @@ class DBManager:
             conn.commit()
 
     def get_identity_snapshot(self, snapshot_id: str) -> IdentitySnapshot | None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             row = conn.execute(
                 "SELECT * FROM identity_snapshots WHERE snapshot_id = ?",
                 (snapshot_id,),
@@ -184,7 +109,7 @@ class DBManager:
         return _identity_from_row(row) if row else None
 
     def get_active_identity_snapshot(self) -> IdentitySnapshot | None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             row = conn.execute(
                 "SELECT * FROM identity_snapshots WHERE active = 1 LIMIT 1"
             ).fetchone()
@@ -202,7 +127,7 @@ class DBManager:
             params.append(status.value)
         sql += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             rows = conn.execute(sql, params).fetchall()
         return [_identity_from_row(row) for row in rows]
 
@@ -216,7 +141,7 @@ class DBManager:
         if status not in {IdentitySnapshotStatus.APPROVED, IdentitySnapshotStatus.REJECTED}:
             raise ValueError("Review status must be approved or rejected")
         reviewed_at = datetime.now(UTC).isoformat()
-        with self.transaction() as conn:
+        with self.database.transaction() as conn:
             row = conn.execute(
                 "SELECT * FROM identity_snapshots WHERE snapshot_id = ?",
                 (snapshot_id,),
@@ -245,8 +170,15 @@ class DBManager:
             raise LookupError(f"Identity snapshot disappeared after review: {snapshot_id}")
         return reviewed
 
+
+class SQLiteTaskRepository:
+    """Persists background task state in SQLite."""
+
+    def __init__(self, database: SQLiteDatabase) -> None:
+        self.database = database
+
     def create_task(self, task: TaskRecord) -> None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO background_tasks
@@ -272,7 +204,7 @@ class DBManager:
         result_json: str | None = None,
         error: str | None = None,
     ) -> None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             conn.execute(
                 """
                 UPDATE background_tasks
@@ -284,7 +216,7 @@ class DBManager:
             conn.commit()
 
     def get_task(self, task_id: str) -> TaskRecord | None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             row = conn.execute(
                 "SELECT * FROM background_tasks WHERE task_id = ?",
                 (task_id,),
@@ -302,7 +234,7 @@ class DBManager:
         )
 
     def has_active_task_of_kind(self, kind: str) -> bool:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             row = conn.execute(
                 """
                 SELECT 1 FROM background_tasks
@@ -314,7 +246,7 @@ class DBManager:
         return row is not None
 
     def mark_unfinished_tasks_failed(self) -> int:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             cursor = conn.execute(
                 """
                 UPDATE background_tasks
@@ -332,6 +264,13 @@ class DBManager:
             conn.commit()
             return cursor.rowcount
 
+
+class SQLiteBackupRecordRepository:
+    """Persists backup and recovery-drill records in SQLite."""
+
+    def __init__(self, database: SQLiteDatabase) -> None:
+        self.database = database
+
     def save_backup_record(
         self,
         backup_id: str,
@@ -341,7 +280,7 @@ class DBManager:
         status: str,
         detail: str | None = None,
     ) -> None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO backup_records
@@ -360,6 +299,13 @@ class DBManager:
             )
             conn.commit()
 
+
+class SQLiteAuditRepository:
+    """Appends access-policy audit events to SQLite."""
+
+    def __init__(self, database: SQLiteDatabase) -> None:
+        self.database = database
+
     def append_audit_event(
         self,
         action: str,
@@ -368,7 +314,7 @@ class DBManager:
         outcome: str,
         details: dict[str, Any] | None = None,
     ) -> None:
-        with self.get_connection() as conn:
+        with self.database.get_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO audit_events
@@ -385,99 +331,6 @@ class DBManager:
                 ),
             )
             conn.commit()
-
-    @staticmethod
-    def _migration_001_sync_history(conn: sqlite3.Connection) -> None:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS sync_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sync_time TEXT NOT NULL,
-                audio_duration REAL NOT NULL DEFAULT 0,
-                notes_count INTEGER NOT NULL DEFAULT 0,
-                word_count INTEGER NOT NULL DEFAULT 0,
-                generation_id TEXT
-            )
-            """
-        )
-        columns = {row["name"] for row in conn.execute("PRAGMA table_info(sync_history)")}
-        if "generation_id" not in columns:
-            conn.execute("ALTER TABLE sync_history ADD COLUMN generation_id TEXT")
-
-    @staticmethod
-    def _migration_002_identity_snapshots(conn: sqlite3.Connection) -> None:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS identity_snapshots (
-                snapshot_id TEXT PRIMARY KEY,
-                parent_snapshot_id TEXT,
-                content TEXT NOT NULL,
-                content_sha256 TEXT NOT NULL,
-                source_ids_json TEXT NOT NULL,
-                model_provider TEXT NOT NULL,
-                model_name TEXT NOT NULL,
-                model_base_url TEXT,
-                prompt_id TEXT NOT NULL,
-                prompt_version TEXT NOT NULL,
-                prompt_sha256 TEXT NOT NULL,
-                generation_params_json TEXT NOT NULL,
-                status TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                reviewed_at TEXT,
-                reviewed_by TEXT,
-                review_note TEXT,
-                active INTEGER NOT NULL DEFAULT 0
-            )
-            """
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_identity_status ON identity_snapshots(status, created_at)"
-        )
-
-    @staticmethod
-    def _migration_003_background_tasks(conn: sqlite3.Connection) -> None:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS background_tasks (
-                task_id TEXT PRIMARY KEY,
-                kind TEXT NOT NULL,
-                status TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                result_json TEXT,
-                error TEXT
-            )
-            """
-        )
-
-    @staticmethod
-    def _migration_004_backup_and_audit(conn: sqlite3.Connection) -> None:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS backup_records (
-                backup_id TEXT PRIMARY KEY,
-                path TEXT NOT NULL,
-                sha256 TEXT NOT NULL,
-                encrypted INTEGER NOT NULL,
-                status TEXT NOT NULL,
-                detail TEXT,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS audit_events (
-                event_id TEXT PRIMARY KEY,
-                occurred_at TEXT NOT NULL,
-                actor_id TEXT NOT NULL,
-                action TEXT NOT NULL,
-                resource TEXT NOT NULL,
-                outcome TEXT NOT NULL,
-                details_json TEXT NOT NULL
-            )
-            """
-        )
 
 
 def _identity_from_row(row: sqlite3.Row) -> IdentitySnapshot:

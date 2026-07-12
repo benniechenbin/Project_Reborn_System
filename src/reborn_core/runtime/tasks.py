@@ -46,6 +46,8 @@ class TaskRepository(Protocol):
 
     def has_active_task_of_kind(self, kind: str) -> bool: ...
 
+    def mark_unfinished_tasks_failed(self) -> int: ...
+
 
 class BackgroundTaskRunner:
     """具有持久化状态记录和显式生命周期的进程内工作器。"""

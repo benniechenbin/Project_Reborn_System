@@ -62,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 )
             elif args.command == "identity-list":
-                snapshots = container.db_manager.list_identity_snapshots(
+                snapshots = container.identity_snapshot_repository.list_identity_snapshots(
                     IdentitySnapshotStatus.PENDING_REVIEW
                 )
                 for snapshot in snapshots:

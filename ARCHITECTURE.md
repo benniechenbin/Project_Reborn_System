@@ -53,9 +53,13 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 
 ### 生命周期
 
-`RebornApp.start()` 负责日志、目录、SQLite migration、检索代次目录和后台 worker；
+`RebornApp.start()` 负责日志、目录、版本化 SQLite migration、检索代次目录和后台 worker；
 `shutdown()` 负责等待任务并关闭日志。LLM、RAG、Embedding、Reranker 和 STT 都保持惰性，
 由 worker 任务内首次加载。
+
+SQLite 连接与事务由 `SQLiteDatabase` 统一管理，`MigrationRunner` 独立维护版本 1–4 的仅向前
+迁移。身份快照、后台任务、同步历史、备份记录和审计事件分别由独立 Repository adapter
+持久化；领域层不再包含 SQLite 实现。所有 adapter 由 `Container` 共享装配同一数据库资源。
 
 ### 检索代次与逻辑别名
 
@@ -124,9 +128,10 @@ uv run reborn legacy-status
 为确保系统在“数字遗产”这一定位上的稳健性，后续研发将按照难易度、优先级和模块依赖性，分为以下四个阶段进行：
 
 ### Phase 1: 架构规整与基础重构（高优先级，中/低难度）
-- **将 Streamlit 页面拆分**：将现有的表现层代码从项目根目录移至 `src/reborn_core/interfaces/streamlit/`，实现纯粹的职责分离，并新增稳定的 API 接口层（如基于 FastAPI），为后续小程序/语音终端接入打下基础。
+- **已完成：将 Streamlit 页面拆分**：页面实现已移至 `src/reborn_core/interfaces/streamlit/`；根 `app.py` 仅保留兼容启动职责，资源仍由统一生命周期管理。
+- **待后续：新增稳定 API 接口层**：在存在明确客户端需求后再评估 API 技术选型，不在本次重构中引入 Web 框架。
 - **规范检索代次注入**：要求 RAG 引擎通过容器显式注入活动检索代次适配器，彻底移除领域层直接实例化或依赖默认静态路径 Qdrant 实例的备用路径。
-- **拆分单体 DBManager**：遵循单一职责原则，将 `DBManager` 按身份快照、后台任务、同步历史、备份与审计仓储拆分为独立的 Repository 接口和适配器，并使用独立版本化的迁移运行器（Migration Runner）。
+- **已完成：拆分单体 DBManager**：身份快照、后台任务、同步历史、备份与审计已使用独立 Repository adapter，并由独立 `MigrationRunner` 管理版本化迁移。
 
 ### Phase 2: 数据安全与数据模型演进（高优先级，中难度）
 - **数据源追踪建模 (SourceArtifact)**：在数据库中为原始物料（音频、访谈、外源知识）增加独立记录，支持内容哈希校验、授权范围和敏感级别，作为合规与审计依据。

@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from reborn_core.application.models import ChatMessage, InterviewMode
 from reborn_core.application.services import (
@@ -9,6 +9,17 @@ from reborn_core.application.services import (
 )
 from reborn_core.config import Settings
 
+if TYPE_CHECKING:
+    from reborn_core.infrastructure.database import (
+        MigrationRunner,
+        SQLiteAuditRepository,
+        SQLiteBackupRecordRepository,
+        SQLiteDatabase,
+        SQLiteIdentitySnapshotRepository,
+        SQLiteSyncHistoryRepository,
+        SQLiteTaskRepository,
+    )
+
 
 class Container:
     """显式、惰性地装配可替换的应用依赖。"""
@@ -17,10 +28,46 @@ class Container:
         self.settings = app_settings or Settings()
 
     @cached_property
-    def db_manager(self):
-        from reborn_core.domains.memory.relational import DBManager
+    def database(self) -> "SQLiteDatabase":
+        from reborn_core.infrastructure.database import SQLiteDatabase
 
-        return DBManager(app_settings=self.settings)
+        return SQLiteDatabase(app_settings=self.settings)
+
+    @cached_property
+    def migration_runner(self) -> "MigrationRunner":
+        from reborn_core.infrastructure.database import MigrationRunner
+
+        return MigrationRunner(self.database)
+
+    @cached_property
+    def identity_snapshot_repository(self) -> "SQLiteIdentitySnapshotRepository":
+        from reborn_core.infrastructure.database import SQLiteIdentitySnapshotRepository
+
+        return SQLiteIdentitySnapshotRepository(self.database)
+
+    @cached_property
+    def task_repository(self) -> "SQLiteTaskRepository":
+        from reborn_core.infrastructure.database import SQLiteTaskRepository
+
+        return SQLiteTaskRepository(self.database)
+
+    @cached_property
+    def sync_history_repository(self) -> "SQLiteSyncHistoryRepository":
+        from reborn_core.infrastructure.database import SQLiteSyncHistoryRepository
+
+        return SQLiteSyncHistoryRepository(self.database)
+
+    @cached_property
+    def backup_record_repository(self) -> "SQLiteBackupRecordRepository":
+        from reborn_core.infrastructure.database import SQLiteBackupRecordRepository
+
+        return SQLiteBackupRecordRepository(self.database)
+
+    @cached_property
+    def audit_repository(self) -> "SQLiteAuditRepository":
+        from reborn_core.infrastructure.database import SQLiteAuditRepository
+
+        return SQLiteAuditRepository(self.database)
 
     @cached_property
     def access_policy(self):
@@ -30,7 +77,7 @@ class Container:
             raise ValueError(
                 f"Unsupported access policy adapter: {self.settings.access_policy_backend}"
             )
-        return AuditedAccessPolicy(LocalOwnerAccessPolicy(), self.db_manager)
+        return AuditedAccessPolicy(LocalOwnerAccessPolicy(), self.audit_repository)
 
     @cached_property
     def legacy_activation_policy(self):
@@ -43,7 +90,7 @@ class Container:
         from reborn_core.runtime import BackgroundTaskRunner
 
         return BackgroundTaskRunner(
-            repository=self.db_manager,
+            repository=self.task_repository,
             max_workers=self.settings.task_worker_threads,
         )
 
@@ -70,7 +117,7 @@ class Container:
         return InterviewService(
             self.llm_router,
             self.memory_writer,
-            self.db_manager,
+            self.identity_snapshot_repository,
             app_settings=self.settings,
             prompt_registry=self.prompt_registry,
         )
@@ -78,7 +125,7 @@ class Container:
     @cached_property
     def identity_governance_service(self) -> IdentityGovernanceService:
         return IdentityGovernanceService(
-            self.db_manager,
+            self.identity_snapshot_repository,
             self.memory_writer,
             self.access_policy,
             llm_router_factory=lambda: self.llm_router,
@@ -137,14 +184,14 @@ class Container:
                 target_folders=self.settings.memory_index_folders,
             ),
             generation_store=self.retrieval_generations,
-            history_repository=self.db_manager,
+            history_repository=self.sync_history_repository,
         )
 
     @cached_property
     def backup_service(self):
         from reborn_core.infrastructure.backup import BackupService
 
-        return BackupService(self.settings, self.db_manager, self.access_policy)
+        return BackupService(self.settings, self.backup_record_repository, self.access_policy)
 
     # 这些方法会特意在后台工作线程中解析并加载重量级惰性依赖。
     def run_sync(self):

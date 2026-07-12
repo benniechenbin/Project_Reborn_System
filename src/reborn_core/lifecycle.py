@@ -43,8 +43,8 @@ class RebornApp:
         ):
             path.mkdir(parents=True, exist_ok=True)
 
-        self.container.db_manager.migrate()
-        abandoned_tasks = self.container.db_manager.mark_unfinished_tasks_failed()
+        self.container.migration_runner.migrate()
+        abandoned_tasks = self.container.task_repository.mark_unfinished_tasks_failed()
         self.container.retrieval_generations.initialize()
         self.container.task_runner.start()
         self._started = True
