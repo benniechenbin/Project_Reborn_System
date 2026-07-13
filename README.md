@@ -44,10 +44,17 @@ uv sync --extra llm --extra rag --extra ui --extra voice
 
 #### 3. Configuration
 
-Copy the environment template and fill in your keys and absolute paths:
+Copy the environment template and fill in deployment-level values such as API keys and local paths:
 
 ```
 cp .env.example .env
+```
+
+Copy the family profile example into the ignored local data directory and fill in the creator/child facts:
+
+```bash
+mkdir -p data
+cp docs/examples/project_profile.toml data/project_profile.toml
 ```
 
 #### 4. Run the Engine
@@ -111,16 +118,23 @@ cd Project_Reborn_System
 uv sync --extra llm --extra rag --extra ui --extra voice
 ```
 
-#### 3. 环境变量配置
+#### 3. 本地配置
 
-复制配置模板并填写你的大模型 API 密钥以及电脑上的绝对路径：
+复制环境变量模板，并只填写密钥、路径、运行环境这类部署级配置：
 
 
 ```bash
 cp .env.example .env
 ```
 
-_(注意：请确保将 `.env` 及 `data/` 目录加入 `.gitignore` 以防隐私泄露)_
+家庭资料不再写入 `.env`。请复制项目资料模板到本地 `data/` 目录，并填写父母与孩子信息：
+
+```powershell
+New-Item -ItemType Directory -Force data
+Copy-Item docs/examples/project_profile.toml data/project_profile.toml
+```
+
+_(注意：请确保将 `.env` 及 `data/` 目录加入 `.gitignore` 以防隐私泄露；本仓库默认已忽略。)_
 
 #### 4. 启动中控台
 
@@ -178,8 +192,8 @@ Project_Reborn_System/
 │       ├── observability/     # 日志及未来指标/追踪
 │       ├── runtime/           # 后台任务
 │       ├── security/          # 访问与数字遗产规则
-│       ├── domains/           # Brain/Memory 适配实现
-│       ├── infrastructure/    # Obsidian/检索代次/SQLite 仓储/备份
+│       ├── domains/           # 纯领域规则与策略（如年龄语气路由）
+│       ├── infrastructure/    # Obsidian/Qdrant/Prompt/SQLite/LLM/STT/备份适配器
 │       ├── interfaces/        # Streamlit 等表现层实现
 │       ├── container.py       # 惰性依赖装配
 │       └── lifecycle.py       # 唯一生命周期入口
@@ -193,7 +207,7 @@ Project_Reborn_System/
 
 - [x] Phase 2: 灵魂采访室落地与 Obsidian 数据闭环 (Path B)
 
-- [ ] Phase 3: RAG 引擎核心逻辑 (rag_engine.py) 与沙盒打通
+- [ ] Phase 3: AvatarService/RAG 核心逻辑与陪伴沙盒持续打通
 
 - [ ] Phase 4: 接入 GPT-SoVITS 本地音色克隆
 

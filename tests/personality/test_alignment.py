@@ -3,9 +3,10 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 from reborn_core.application.models import ModelMetadata
-from reborn_core.domains.brain.rag_engine import RAGEngine
+from reborn_core.application.services.avatar import AvatarService
 from reborn_core.infrastructure.brain.llm_router import LLMRouter
-from reborn_core.domains.brain.prompt_registry import get_prompt_registry
+from reborn_core.infrastructure.memory import JsonMemoryGapRepository, ObsidianAvatarMemoryContext
+from reborn_core.infrastructure.prompting import get_prompt_registry
 
 
 def create_fake_openai_client(forced_reply: str):
@@ -42,12 +43,13 @@ class HonestyRetriever:
         return [Memory("价值观：诚实是做人的底线，不应该撒谎。")]
 
 
-def test_persona_prompt_includes_retrieved_value(test_settings):
+def test_persona_prompt_includes_retrieved_value(memory_vault_layout, family_profile):
     llm = CapturingLLM()
-    engine = RAGEngine(
-        app_settings=test_settings,
+    engine = _make_avatar_service(
+        memory_vault_layout=memory_vault_layout,
+        family_profile=family_profile,
         llm_router=llm,
-        vector_db=HonestyRetriever(),
+        memory_retriever=HonestyRetriever(),
         clock=lambda: datetime(2026, 5, 29),
     )
 
@@ -59,12 +61,13 @@ def test_persona_prompt_includes_retrieved_value(test_settings):
     assert references
 
 
-def test_persona_prompt_requires_truthful_identity_disclosure(test_settings):
+def test_persona_prompt_requires_truthful_identity_disclosure(memory_vault_layout, family_profile):
     llm = CapturingLLM()
-    engine = RAGEngine(
-        app_settings=test_settings,
+    engine = _make_avatar_service(
+        memory_vault_layout=memory_vault_layout,
+        family_profile=family_profile,
         llm_router=llm,
-        vector_db=HonestyRetriever(),
+        memory_retriever=HonestyRetriever(),
         clock=lambda: datetime(2026, 5, 29),
     )
 
@@ -81,6 +84,24 @@ class FakeChatModel:
 
     def generate(self, *args, **kwargs) -> str:
         return self.forced_reply
+
+
+def _make_avatar_service(
+    memory_vault_layout,
+    family_profile,
+    llm_router,
+    memory_retriever,
+    clock,
+):
+    return AvatarService(
+        llm_router=llm_router,
+        memory_retriever=memory_retriever,
+        prompt_renderer=get_prompt_registry(),
+        memory_context=ObsidianAvatarMemoryContext(memory_vault_layout),
+        memory_gaps=JsonMemoryGapRepository(memory_vault_layout.memory_gaps_path),
+        profile=family_profile,
+        clock=clock,
+    )
 
 
 # ---------------------------------------------------------

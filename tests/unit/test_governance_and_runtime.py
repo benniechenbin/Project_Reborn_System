@@ -3,7 +3,7 @@ import time
 from cryptography.fernet import Fernet
 import pytest
 
-from reborn_core.config import LegacyActivationMode
+from reborn_core.domains import LegacyActivationMode
 from reborn_core.core.exceptions import ConfigurationError
 from reborn_core.infrastructure.database import (
     MigrationRunner,
@@ -116,6 +116,7 @@ def test_encrypted_backup_and_recovery_drill(test_settings):
     assert path.name.endswith(".zip.fernet")
     assert result["verified"] is True
     assert result["encrypted"] is True
+    assert result["profile_included"] is True
     assert result["sqlite_integrity"] == "ok"
 
 

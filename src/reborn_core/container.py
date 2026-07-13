@@ -1,13 +1,20 @@
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from reborn_core.application.models import ChatMessage, InterviewMode
+from reborn_core.application.models import (
+    ChatMessage,
+    InterviewMode,
+    MemoryVaultLayout,
+    PromptContext,
+)
 from reborn_core.application.services import (
+    AvatarService,
     IdentityGovernanceService,
     InterviewService,
     SyncService,
 )
 from reborn_core.config import Settings
+from reborn_core.domains import FamilyProfile
 
 if TYPE_CHECKING:
     from reborn_core.infrastructure.database import (
@@ -101,16 +108,37 @@ class Container:
         return LLMRouter(app_settings=self.settings)
 
     @cached_property
+    def prompt_context(self) -> PromptContext:
+        return PromptContext(
+            creator_name=self.family_profile.creator.name,
+            child_nickname=self.family_profile.child.nickname,
+        )
+
+    @cached_property
     def prompt_registry(self):
-        from reborn_core.domains.brain.prompt_registry import get_prompt_registry
+        from reborn_core.infrastructure.prompting import get_prompt_registry
 
         return get_prompt_registry()
 
     @cached_property
-    def memory_writer(self):
-        from reborn_core.domains.memory.memory_writer import MemoryWriter
+    def memory_vault_layout(self) -> MemoryVaultLayout:
+        obsidian_root = self.settings.active_obsidian_path or (
+            self.settings.base_dir / "data" / "memories"
+        )
+        return MemoryVaultLayout(
+            obsidian_root=obsidian_root,
+            core_values_folder=self.settings.core_values_folder,
+            stories_folder=self.settings.stories_folder,
+            ai_reflections_folder=self.settings.ai_reflections_folder,
+            source_artifacts_folder=self.settings.source_artifacts_folder,
+            memory_gaps_path=self.settings.resolved_memory_gaps_path,
+        )
 
-        return MemoryWriter(app_settings=self.settings)
+    @cached_property
+    def memory_writer(self):
+        from reborn_core.infrastructure.memory import ObsidianMemoryWriter
+
+        return ObsidianMemoryWriter(layout=self.memory_vault_layout)
 
     @cached_property
     def interview_service(self) -> InterviewService:
@@ -118,8 +146,8 @@ class Container:
             self.llm_router,
             self.memory_writer,
             self.identity_snapshot_repository,
-            app_settings=self.settings,
-            prompt_registry=self.prompt_registry,
+            prompt_context=self.prompt_context,
+            prompt_renderer=self.prompt_registry,
         )
 
     @cached_property
@@ -129,8 +157,8 @@ class Container:
             self.memory_writer,
             self.access_policy,
             llm_router_factory=lambda: self.llm_router,
-            app_settings=self.settings,
-            prompt_registry=self.prompt_registry,
+            prompt_context=self.prompt_context,
+            prompt_renderer=self.prompt_registry,
         )
 
     @cached_property
@@ -138,7 +166,7 @@ class Container:
         from reborn_core.infrastructure.retrieval import RetrievalGenerationManager
 
         def make_provider(path):
-            from reborn_core.domains.memory.vector_store import QdrantDBProvider
+            from reborn_core.infrastructure.memory.vector_store import QdrantDBProvider
 
             return QdrantDBProvider(app_settings=self.settings, vector_db_path=path)
 
@@ -149,14 +177,41 @@ class Container:
         )
 
     @cached_property
-    def rag_engine(self):
-        from reborn_core.domains.brain.rag_engine import RAGEngine
+    def family_profile_repository(self):
+        from reborn_core.infrastructure.profile import TomlFamilyProfileRepository
 
-        return RAGEngine(
-            app_settings=self.settings,
+        return TomlFamilyProfileRepository(self.settings.resolved_project_profile_path)
+
+    @cached_property
+    def family_profile(self) -> FamilyProfile:
+        return self.family_profile_repository.load()
+
+    @cached_property
+    def avatar_memory_context(self):
+        from reborn_core.infrastructure.memory import ObsidianAvatarMemoryContext
+
+        return ObsidianAvatarMemoryContext(self.memory_vault_layout)
+
+    @cached_property
+    def memory_gap_repository(self):
+        from reborn_core.infrastructure.memory import JsonMemoryGapRepository
+
+        return JsonMemoryGapRepository(self.memory_vault_layout.memory_gaps_path)
+
+    @cached_property
+    def avatar_service(self) -> AvatarService:
+        return AvatarService(
             llm_router=self.llm_router,
-            vector_db=self.retrieval_generations,
+            memory_retriever=self.retrieval_generations,
+            prompt_renderer=self.prompt_registry,
+            memory_context=self.avatar_memory_context,
+            memory_gaps=self.memory_gap_repository,
+            profile=self.family_profile,
         )
+
+    @cached_property
+    def rag_engine(self) -> AvatarService:
+        return self.avatar_service
 
     @cached_property
     def stt_engine(self):
@@ -225,8 +280,8 @@ class Container:
 
     def render_builder_prompt_message(self, prompt_id: str) -> dict[str, str]:
         context = {
-            "creator_name": self.settings.creator_name,
-            "child_nickname": self.settings.child_nickname,
+            "creator_name": self.prompt_context.creator_name,
+            "child_nickname": self.prompt_context.child_nickname,
         }
         return self.prompt_registry.render_from_context(prompt_id, context).as_message()
 
@@ -235,7 +290,7 @@ class Container:
         query: str,
         chat_history: list[dict[str, str]],
     ):
-        return self.rag_engine.generate_avatar_response(query, chat_history)
+        return self.avatar_service.generate_avatar_response(query, chat_history)
 
     def run_backup(self):
         return self.backup_service.create_backup()

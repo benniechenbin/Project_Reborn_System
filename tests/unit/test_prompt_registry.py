@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from reborn_core.domains.brain.prompt_registry import (
+from reborn_core.infrastructure.prompting import (
     PromptRegistry,
     PromptRegistryError,
     get_prompt_registry,
@@ -98,13 +98,13 @@ Hello {name}.
     assert rendered.content == "Hello 张三."
 
 
-def test_brain_package_import_does_not_load_legacy_prompt_templates():
+def test_brain_package_no_longer_exports_legacy_prompt_templates():
     sys.modules.pop("reborn_core.domains.brain.prompts", None)
     sys.modules.pop("reborn_core.domains.brain", None)
 
     brain = importlib.import_module("reborn_core.domains.brain")
 
-    assert "CREATOR_INTERVIEW_PROMPT" in brain.__all__
+    assert brain.__all__ == ["build_child_age_tone", "calculate_age"]
     assert "reborn_core.domains.brain.prompts" not in sys.modules
 
 

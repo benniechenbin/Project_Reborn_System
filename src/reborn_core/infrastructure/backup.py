@@ -103,6 +103,9 @@ class BackupService:
             "verified": True,
             "file_count": len(manifest["files"]),
             "encrypted": path.name.endswith(".fernet"),
+            "profile_included": any(
+                item["archive_path"] == "profile/project_profile.toml" for item in manifest["files"]
+            ),
         }
 
     def run_recovery_drill(
@@ -157,6 +160,9 @@ class BackupService:
         activation = self.settings.resolved_legacy_activation_file
         if activation.exists():
             files.append((activation, "governance/legacy_activation.json"))
+        profile = self.settings.resolved_project_profile_path
+        if profile.exists():
+            files.append((profile, "profile/project_profile.toml"))
 
         manifest_files = []
         with zipfile.ZipFile(target_zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:

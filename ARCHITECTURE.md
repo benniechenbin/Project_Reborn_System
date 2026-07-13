@@ -34,18 +34,24 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 - `reborn_core.observability`：日志及未来指标、追踪入口。
 - `reborn_core.lifecycle`：唯一拥有启动与关闭副作用的入口。
 - `reborn_core.container.Container`：惰性依赖装配，不在构造时加载模型。
-- `reborn_core.application`：访谈、同步和身份审批用例。
+- `reborn_core.application`：访谈、同步、身份审批和 Avatar/RAG 用例；只依赖端口、DTO 与纯领域规则，不直接依赖配置实现或基础设施。
+- `reborn_core.domains`：纯领域模型、规则和策略，例如家庭资料模型与年龄语气路由；不得包含文件系统、模型加载、Qdrant、Prompt 文件读取或日志等适配器行为。
+- `reborn_core.infrastructure`：SQLite、Obsidian、Qdrant/BM25、LLM、STT、Prompt 文件加载、备份等外部资源适配器。
 - `reborn_core.runtime`：后台任务运行器与持久化任务状态。
 - `reborn_core.security`：访问策略和数字遗产激活规则。
 
 所有入口必须使用 `build_app().start()` 或 `lifespan()`。生命周期副作用只能由
 `reborn_core.lifecycle` 管理，项目不再保留第二套启动入口。
 
+父母姓名、孩子姓名、性别和生日等家庭资料属于业务数据，不属于环境变量。真实资料默认存放在
+`data/project_profile.toml`，由 `reborn_core.infrastructure.profile` 读取并构造领域层
+`FamilyProfile`；`.env` 只保存密钥、路径、运行环境等部署级配置。
+
 ### 目录与命名空间结构规范 (Directory & Namespace Layout Rules)
 
 为了保持系统各层级在业务概念上的高度内聚与对齐（认知对齐，避免跨子域的技术组件耦合），本项目遵循以下布局原则：
 
-1. **子域 1:1 镜像关系**：在 `infrastructure/` 层级中，其内部子目录应尽量与 `domains/` 的业务子域进行 1:1 的镜像结构（例如：脑部域的领域逻辑位于 `domains/brain/`，则其具体的技术适配器/客户端实现应位于 `infrastructure/brain/`）。
+1. **子域 1:1 镜像关系**：在 `infrastructure/` 层级中，其内部子目录应尽量与领域业务子域对齐（例如：脑部域的纯领域策略位于 `domains/brain/`，其具体 Prompt、LLM 或记忆上下文适配器位于 `infrastructure/prompting/`、`infrastructure/brain/` 或 `infrastructure/memory/`）。
 2. **便于垂直切片（Vertical Slice）**：这有助于降低心智检索负担，并在未来需要将系统模块化或微服务化拆分时，能以业务子域为边界进行干净的解耦。
 3. **通用基础设施扁平化**：对于跨多个子域的、扁平的通用基础设施（如 `backup.py` 或公共数据库管理），可以直接放置在 `infrastructure/` 的根部。
 
@@ -94,7 +100,7 @@ data/retrieval/
 - 当前使用 `LocalOwnerAccessPolicy`，并通过 `AuditedAccessPolicy` 记录敏感操作。
 - 登录界面尚未启用；未来认证系统只需替换访问策略适配器。
 - 备份默认要求 `BACKUP_ENCRYPTION_KEY`，使用 Fernet 加密。
-- 备份包含 SQLite 一致性快照、Obsidian 资料和数字遗产激活文件；可重建的模型与检索索引不纳入。
+- 备份包含 SQLite 一致性快照、Obsidian 资料、家庭资料 TOML 和数字遗产激活文件；可重建的模型与检索索引不纳入。
 - 恢复演练会解密、校验每个文件哈希、在隔离临时目录解包，并执行 SQLite integrity check。
 - 数字遗产激活支持 `owner_only`、`activation_file`、`activated` 三种规则。激活文件必须包含授权人、
   批准时间和证据引用。
@@ -130,7 +136,7 @@ uv run reborn legacy-status
 ### Phase 1: 架构规整与基础重构（高优先级，中/低难度）
 - **已完成：将 Streamlit 页面拆分**：页面实现已移至 `src/reborn_core/interfaces/streamlit/`；根 `app.py` 仅保留兼容启动职责，资源仍由统一生命周期管理。
 - **待后续：新增稳定 API 接口层**：在存在明确客户端需求后再评估 API 技术选型，不在本次重构中引入 Web 框架。
-- **规范检索代次注入**：要求 RAG 引擎通过容器显式注入活动检索代次适配器，彻底移除领域层直接实例化或依赖默认静态路径 Qdrant 实例的备用路径。
+- **已完成：规范检索代次注入**：Avatar/RAG 用例由 `Container` 显式注入活动检索代次适配器；Qdrant/BM25、Prompt 文件加载、Obsidian 读写和记忆盲区 JSON 写入均位于 `infrastructure/`。
 - **已完成：拆分单体 DBManager**：身份快照、后台任务、同步历史、备份与审计已使用独立 Repository adapter，并由独立 `MigrationRunner` 管理版本化迁移。
 
 ### Phase 2: 数据安全与数据模型演进（高优先级，中难度）

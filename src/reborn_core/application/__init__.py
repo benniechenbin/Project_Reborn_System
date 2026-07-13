@@ -5,22 +5,28 @@ from reborn_core.application.models import (
     IdentitySnapshotStatus,
     InterviewMode,
     InterviewResult,
+    MemoryVaultLayout,
+    PromptContext,
     SyncHistoryEntry,
     SyncMetrics,
 )
 from reborn_core.application.services import (
+    AvatarService,
     IdentityGovernanceService,
     InterviewService,
     SyncService,
 )
 
 __all__ = [
+    "AvatarService",
     "IdentityGovernanceService",
     "IdentitySnapshot",
     "IdentitySnapshotStatus",
     "InterviewMode",
     "InterviewResult",
     "InterviewService",
+    "MemoryVaultLayout",
+    "PromptContext",
     "SyncHistoryEntry",
     "SyncMetrics",
     "SyncService",

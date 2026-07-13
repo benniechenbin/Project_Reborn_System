@@ -8,6 +8,7 @@ from reborn_core.application.models import (
     IdentitySnapshot,
     IdentitySnapshotStatus,
     ModelMetadata,
+    PromptContext,
     PromptMetadata,
 )
 from reborn_core.application.ports import (
@@ -15,12 +16,8 @@ from reborn_core.application.ports import (
     ChatModel,
     IdentitySnapshotRepository,
     MemoryRepository,
-)
-from reborn_core.config import Settings
-from reborn_core.domains.brain.prompt_registry import (
-    PromptRegistry,
-    RenderedPrompt,
-    get_prompt_registry,
+    PromptRendererPort,
+    RenderedPromptPort,
 )
 from reborn_core.observability import logger
 from reborn_core.security import AccessAction, AccessContext
@@ -36,18 +33,18 @@ class IdentityGovernanceService:
         snapshots: IdentitySnapshotRepository,
         memory: MemoryRepository,
         access_policy: AccessPolicyPort,
-        app_settings: Settings,
+        prompt_context: PromptContext,
+        prompt_renderer: PromptRendererPort,
         llm_router: ChatModel | None = None,
         llm_router_factory: Callable[[], Any] | None = None,
-        prompt_registry: PromptRegistry | None = None,
     ) -> None:
         self.snapshots = snapshots
         self.memory = memory
         self.access_policy = access_policy
         self.llm_router = llm_router
         self.llm_router_factory = llm_router_factory
-        self.settings = app_settings
-        self.prompt_registry = prompt_registry or get_prompt_registry()
+        self.prompt_context = prompt_context
+        self.prompt_renderer = prompt_renderer
 
     def list_pending(self, limit: int = 20) -> list[IdentitySnapshot]:
         return self.snapshots.list_identity_snapshots(IdentitySnapshotStatus.PENDING_REVIEW, limit)
@@ -173,9 +170,5 @@ class IdentityGovernanceService:
             logger.error(f"❌ 严重错误：新记忆生成成功，但持久化到数据库失败: {e}")
             raise RuntimeError(f"夜间反思持久化失败: {e}") from e
 
-    def _render_prompt(self, prompt_id: str) -> RenderedPrompt:
-        context = {
-            "creator_name": self.settings.creator_name,
-            "child_nickname": self.settings.child_nickname,
-        }
-        return self.prompt_registry.render_from_context(prompt_id, context)
+    def _render_prompt(self, prompt_id: str) -> RenderedPromptPort:
+        return self.prompt_renderer.render_from_context(prompt_id, self.prompt_context.as_dict())

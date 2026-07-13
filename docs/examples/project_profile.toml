@@ -1,0 +1,8 @@
+[creator]
+name = "张三"
+
+[child]
+name = "张小明"
+nickname = "明明"
+gender = "男"
+birthday = "2020-01-01"

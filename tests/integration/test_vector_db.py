@@ -10,7 +10,7 @@ pytest.importorskip("sentence_transformers")
 
 from langchain_core.documents import Document  # noqa: E402
 
-from reborn_core.domains.memory.vector_store import QdrantDBProvider  # noqa: E402
+from reborn_core.infrastructure.memory.vector_store import QdrantDBProvider  # noqa: E402
 
 
 def test_vector_db_workflow(test_settings, tmp_path):

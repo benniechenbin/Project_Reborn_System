@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, TypedDict
 
 
@@ -104,3 +105,29 @@ class SyncHistoryEntry:
             "word_count": self.word_count,
             "generation_id": self.generation_id,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class PromptContext:
+    """Stable prompt variables required by application use cases."""
+
+    creator_name: str | None = None
+    child_nickname: str | None = None
+
+    def as_dict(self) -> dict[str, str | None]:
+        return {
+            "creator_name": self.creator_name,
+            "child_nickname": self.child_nickname,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryVaultLayout:
+    """Logical Obsidian/RAG paths used by memory adapters."""
+
+    obsidian_root: Path
+    core_values_folder: str
+    stories_folder: str
+    ai_reflections_folder: str
+    source_artifacts_folder: str
+    memory_gaps_path: Path

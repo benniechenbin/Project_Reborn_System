@@ -6,7 +6,7 @@ from typing import Literal, Any
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .enums import LegacyActivationMode
+from reborn_core.domains import LegacyActivationMode
 
 
 def find_project_root(
@@ -71,11 +71,6 @@ class Settings(BaseSettings):
         description="日志格式：auto 根据环境选择，pretty 为开发可读格式，json 为结构化日志。",
     )
 
-    creator_name: str | None = Field(
-        default=None,
-        description="家长/数字人原型的真实姓名或指定称谓",
-    )
-
     models_dir: Path = Field(default=Path("data/local_models"), description="本地模型目录")
     hf_mirror: str = Field(default="https://hf-mirror.com", description="HuggingFace 镜像地址")
     db_path: Path = Field(default=Path("data/sqlite/reborn.db"), description="SQLite 数据库路径")
@@ -84,6 +79,10 @@ class Settings(BaseSettings):
     memory_gaps_path: Path = Field(
         default=Path("data/memory_gaps.json"),
         description="RAG 记忆盲区记录文件路径",
+    )
+    project_profile_path: Path = Field(
+        default=Path("data/project_profile.toml"),
+        description="Project Reborn 家庭资料 TOML 文件路径",
     )
     task_worker_threads: int = Field(default=2, ge=1, le=16, description="后台任务工作线程数")
     retrieval_generation_retention: int = Field(
@@ -157,11 +156,6 @@ class Settings(BaseSettings):
         default=Path("data/local_models"),
         description="ModelScope/FunASR 模型缓存目录",
     )
-
-    child_name: str | None = Field(default=None, description="孩子姓名")
-    child_nickname: str | None = Field(default=None, description="孩子昵称")
-    child_gender: str | None = Field(default=None, description="孩子性别")
-    child_birthday: str | None = Field(default=None, description="孩子生日（YYYY-MM-DD）")
 
     core_values_folder: str = Field(
         default="02_Values",
@@ -244,6 +238,10 @@ class Settings(BaseSettings):
         return self._resolve_path(self.memory_gaps_path)
 
     @property
+    def resolved_project_profile_path(self) -> Path:
+        return self._resolve_path(self.project_profile_path)
+
+    @property
     def resolved_legacy_activation_file(self) -> Path:
         return self._resolve_path(self.legacy_activation_file)
 
@@ -257,37 +255,6 @@ class Settings(BaseSettings):
         if tuple(self.REBORN_TARGET_FOLDERS) != default_folders:
             return self.REBORN_TARGET_FOLDERS
         return (self.core_values_folder, self.stories_folder)
-
-    def require_child_profile(self) -> tuple[str, str, str, str]:
-        values = (
-            self.child_name,
-            self.child_nickname,
-            self.child_gender,
-            self.child_birthday,
-        )
-        if not all(values):
-            raise ValueError(
-                "Avatar sandbox requires CHILD_NAME, CHILD_NICKNAME, "
-                "CHILD_GENDER and CHILD_BIRTHDAY."
-            )
-        return values  # type: ignore[return-value]
-
-    def require_avatar_profile(self) -> tuple[str, str, str, str, str]:
-        values = (
-            self.creator_name,
-            self.child_name,
-            self.child_nickname,
-            self.child_gender,
-            self.child_birthday,
-        )
-        if not all(values):
-            raise ValueError(
-                "Avatar sandbox requires CREATOR_NAME, CHILD_NAME, CHILD_NICKNAME, "
-                "CHILD_GENDER and CHILD_BIRTHDAY."
-            )
-        if self.child_gender not in {"男", "女"}:
-            raise ValueError("Avatar sandbox requires CHILD_GENDER to be '男' or '女'.")
-        return values  # type: ignore[return-value]
 
     def _resolve_path(self, path: Path) -> Path:
         return path if path.is_absolute() else self.base_dir / path

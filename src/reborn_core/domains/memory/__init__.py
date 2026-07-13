@@ -1,3 +1,3 @@
-from .memory_writer import MemoryWriter
+"""Pure memory-domain concepts live here as they are introduced."""
 
-__all__ = ["MemoryWriter"]
+__all__: list[str] = []

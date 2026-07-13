@@ -1,8 +1,8 @@
-from reborn_core.domains.memory.memory_writer import MemoryWriter
+from reborn_core.infrastructure.memory import ObsidianMemoryWriter
 
 
-def test_derived_memory_references_immutable_transcript(tmp_path, test_settings):
-    writer = MemoryWriter(app_settings=test_settings, obsidian_root=tmp_path)
+def test_derived_memory_references_immutable_transcript(tmp_path, memory_vault_layout):
+    writer = ObsidianMemoryWriter(layout=memory_vault_layout, obsidian_root=tmp_path)
 
     source_ref = writer.save_source_transcript("旅行", "user: 原始访谈", "life_story")
     assert writer.save_story("旅行", "提炼结果", source_ref=source_ref)
@@ -16,8 +16,8 @@ def test_derived_memory_references_immutable_transcript(tmp_path, test_settings)
     assert "+00:00" in story
 
 
-def test_master_identity_keeps_previous_snapshot(tmp_path, test_settings):
-    writer = MemoryWriter(app_settings=test_settings, obsidian_root=tmp_path)
+def test_master_identity_keeps_previous_snapshot(tmp_path, memory_vault_layout):
+    writer = ObsidianMemoryWriter(layout=memory_vault_layout, obsidian_root=tmp_path)
 
     assert writer.save_master_identity("version 1")
     assert writer.save_master_identity("version 2")

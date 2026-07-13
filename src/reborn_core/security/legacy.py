@@ -2,7 +2,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from reborn_core.config import LegacyActivationMode, Settings
+from reborn_core.domains import LegacyActivationMode
+from reborn_core.config import Settings
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,10 +15,9 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
 from rank_bm25 import BM25Okapi
 
-# ✅ 修复 1：正确的函数级导入
 from reborn_core.config import Settings
-from reborn_core.domains.memory.vector_store.base import BaseVectorDB
-from reborn_core.domains.memory.vector_store.model_loader import (
+from reborn_core.infrastructure.memory.vector_store.base import BaseVectorDB
+from reborn_core.infrastructure.memory.vector_store.model_loader import (
     load_embedding_model,
     load_reranker_model,
 )

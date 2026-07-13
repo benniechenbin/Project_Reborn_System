@@ -1,23 +1,8 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 
-from reborn_core.application.models import ModelMetadata
-from reborn_core.domains.brain.rag_engine import RAGEngine
-
-
-class StubLLM:
-    @property
-    def model_metadata(self) -> ModelMetadata:
-        return ModelMetadata(provider="mock", model_name="stub-llm")
-
-    def generate_response(self, messages, temperature=0.7):
-        return "stub"
-
-
-class StubRetriever:
-    def search(self, query, top_k=5):
-        return []
+from reborn_core.domains.brain.age_tone import build_child_age_tone
 
 
 @pytest.mark.parametrize(
@@ -28,21 +13,14 @@ class StubRetriever:
         ("2001-01-01", "25 岁", "成年人之间深沉、平等"),
     ],
 )
-def test_calculate_child_age_and_tone(
-    test_settings,
-    birthday,
-    expected_age,
-    expected_tone,
-):
-    settings = test_settings.model_copy(update={"child_birthday": birthday})
-    engine = RAGEngine(
-        app_settings=settings,
-        llm_router=StubLLM(),
-        vector_db=StubRetriever(),
-        clock=lambda: datetime(2026, 5, 29),
+def test_calculate_child_age_and_tone(birthday, expected_age, expected_tone):
+    tone_info = build_child_age_tone(
+        child_name="张小明",
+        child_nickname="明明",
+        child_gender="男",
+        child_birthday=date.fromisoformat(birthday),
+        now=datetime(2026, 5, 29),
     )
-
-    tone_info = engine._calculate_child_age_and_tone()
 
     assert expected_age in tone_info
     assert expected_tone in tone_info

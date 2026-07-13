@@ -78,6 +78,21 @@ Project Reborn（数字生命引擎）的最终目标是一个数字陪伴系统
 
 ---
 
+## Configuration and config Rules
+
+为保持领域层的纯净性（Domain Purity）与依赖单向性，系统配置的声明和使用必须遵循以下约束：
+
+* **Domain 层禁止依赖 config**：
+  * `domains/` 中的所有代码绝对禁止 import `reborn_core.config.settings` 或其子模块中的 `Settings` 类。
+  * 领域层如需特定配置（如判定年龄的阈值），应在方法/类构造时通过原生类型、普通的 Python `dataclass` 或领域特定的 `Value Object` 传入，不可感知外围配置。
+* **config 允许单向依赖 Domain 层**：
+  * 项目级配置类（如 `Settings`）及其验证器允许依赖领域层定义的枚举或规则（例如将领域定义的激活状态枚举作为配置项校验类型）。
+* **配置类的单一职责与拆分**：
+  * 禁止将所有不同子系统的配置（LLM、STT、数据库、Obsidian 路径等）永久堆积在一个庞大的单体 `Settings` 类中。
+  * 配置文件应逐步按业务/子系统维度进行精细拆分，使得外层适配器或应用服务仅需依赖其具体的配置子集，而不是整套 monolithic 配置。
+
+---
+
 ## Lifecycle and Resource Management
 
 所有有副作用的资源必须纳入生命周期管理。

@@ -1,10 +1,13 @@
 import pytest
 import json
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime
 from unittest.mock import MagicMock
-from reborn_core.domains.brain.rag_engine import RAGEngine
+
+from reborn_core.application.services.avatar import AvatarService
+from reborn_core.infrastructure.memory import JsonMemoryGapRepository, ObsidianAvatarMemoryContext
+from reborn_core.infrastructure.prompting import get_prompt_registry
 
 
 @dataclass
@@ -27,16 +30,43 @@ def mock_dependencies():
 
 
 @pytest.fixture
-def rag_engine(test_settings, mock_dependencies):
+def rag_engine(memory_vault_layout, family_profile, mock_dependencies):
     llm_router, vector_db = mock_dependencies
 
     def mock_clock():
         return datetime(2026, 6, 4)
 
-    engine = RAGEngine(
-        app_settings=test_settings, llm_router=llm_router, vector_db=vector_db, clock=mock_clock
+    engine = _make_avatar_service(
+        memory_vault_layout,
+        family_profile,
+        llm_router,
+        vector_db,
+        mock_clock,
     )
     return engine
+
+
+def _make_avatar_service(
+    memory_vault_layout,
+    family_profile,
+    llm_router,
+    vector_db,
+    clock,
+):
+    memory_context = ObsidianAvatarMemoryContext(memory_vault_layout)
+    service = AvatarService(
+        llm_router=llm_router,
+        memory_retriever=vector_db,
+        prompt_renderer=get_prompt_registry(),
+        memory_context=memory_context,
+        memory_gaps=JsonMemoryGapRepository(memory_vault_layout.memory_gaps_path),
+        profile=family_profile,
+        clock=clock,
+    )
+    service.core_memories_path = memory_context.core_memories_path
+    service.reflections_path = memory_context.reflections_path
+    service.gap_file = memory_vault_layout.memory_gaps_path
+    return service
 
 
 def test_rag_age_routing_child(rag_engine):
@@ -49,13 +79,17 @@ def test_rag_age_routing_child(rag_engine):
     assert "鼓励、引导" in tone_info
 
 
-def test_rag_age_routing_toddler(test_settings, mock_dependencies):
+def test_rag_age_routing_toddler(rag_engine, memory_vault_layout, mock_dependencies):
     llm_router, vector_db = mock_dependencies
-    test_settings.child_birthday = "2023-01-01"  # age 3
-    engine = RAGEngine(
-        app_settings=test_settings,
-        llm_router=llm_router,
-        vector_db=vector_db,
+    profile = replace(
+        rag_engine.profile,
+        child=replace(rag_engine.profile.child, birthday=date(2023, 1, 1)),
+    )
+    engine = _make_avatar_service(
+        memory_vault_layout,
+        profile,
+        llm_router,
+        vector_db,
         clock=lambda: datetime(2026, 6, 4),
     )
 
@@ -64,13 +98,17 @@ def test_rag_age_routing_toddler(test_settings, mock_dependencies):
     assert "温柔、带有童话色彩" in tone_info
 
 
-def test_rag_age_routing_teenager(test_settings, mock_dependencies):
+def test_rag_age_routing_teenager(rag_engine, memory_vault_layout, mock_dependencies):
     llm_router, vector_db = mock_dependencies
-    test_settings.child_birthday = "2010-01-01"  # age 16
-    engine = RAGEngine(
-        app_settings=test_settings,
-        llm_router=llm_router,
-        vector_db=vector_db,
+    profile = replace(
+        rag_engine.profile,
+        child=replace(rag_engine.profile.child, birthday=date(2010, 1, 1)),
+    )
+    engine = _make_avatar_service(
+        memory_vault_layout,
+        profile,
+        llm_router,
+        vector_db,
         clock=lambda: datetime(2026, 6, 4),
     )
 
@@ -79,13 +117,17 @@ def test_rag_age_routing_teenager(test_settings, mock_dependencies):
     assert "开明、带点极客幽默" in tone_info
 
 
-def test_rag_age_routing_adult(test_settings, mock_dependencies):
+def test_rag_age_routing_adult(rag_engine, memory_vault_layout, mock_dependencies):
     llm_router, vector_db = mock_dependencies
-    test_settings.child_birthday = "1990-01-01"  # age 36
-    engine = RAGEngine(
-        app_settings=test_settings,
-        llm_router=llm_router,
-        vector_db=vector_db,
+    profile = replace(
+        rag_engine.profile,
+        child=replace(rag_engine.profile.child, birthday=date(1990, 1, 1)),
+    )
+    engine = _make_avatar_service(
+        memory_vault_layout,
+        profile,
+        llm_router,
+        vector_db,
         clock=lambda: datetime(2026, 6, 4),
     )
 

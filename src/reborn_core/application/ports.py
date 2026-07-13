@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any, Protocol
 
 from reborn_core.application.models import (
@@ -19,6 +20,30 @@ class ChatModel(Protocol):
         messages: Sequence[Mapping[str, str]],
         temperature: float = 0.7,
     ) -> str: ...
+
+
+class RenderedPromptPort(Protocol):
+    prompt_id: str
+    version: str
+    role: str
+    content: str
+    sha256: str
+
+    def as_message(self) -> dict[str, str]: ...
+
+
+class PromptRendererPort(Protocol):
+    def render(
+        self,
+        prompt_id: str,
+        variables: dict[str, Any] | None = None,
+    ) -> RenderedPromptPort: ...
+
+    def render_from_context(
+        self,
+        prompt_id: str,
+        context: dict[str, Any],
+    ) -> RenderedPromptPort: ...
 
 
 class MemoryRepository(Protocol):
@@ -81,6 +106,16 @@ class RetrievalGenerationPort(Protocol):
 
 class MemoryRetriever(Protocol):
     def search(self, query: str, top_k: int = 5) -> list[Any]: ...
+
+
+class AvatarMemoryContextPort(Protocol):
+    def load_level_1_rom(self, now: datetime) -> str: ...
+
+    def load_level_2_personality(self) -> str: ...
+
+
+class MemoryGapRepositoryPort(Protocol):
+    def record_gap(self, query: str, score: float, occurred_at: datetime) -> None: ...
 
 
 class SyncHistoryRepository(Protocol):

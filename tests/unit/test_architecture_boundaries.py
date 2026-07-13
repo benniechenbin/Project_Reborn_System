@@ -3,17 +3,11 @@ from pathlib import Path
 
 
 SOURCE_ROOT = Path(__file__).parents[2] / "src" / "reborn_core"
-LAYERS = {"application", "domains", "infrastructure", "interfaces"}
+LAYERS = {"application", "config", "domains", "infrastructure", "interfaces", "observability"}
 FORBIDDEN_IMPORTS = {
-    "application": {"infrastructure", "interfaces"},
-    "domains": {"application", "infrastructure", "interfaces"},
+    "application": {"config", "infrastructure", "interfaces"},
+    "domains": {"application", "config", "infrastructure", "interfaces", "observability"},
     "infrastructure": {"interfaces"},
-}
-ALLOWED_LEGACY_IMPORTS = {
-    (
-        "domains/brain/rag_engine.py",
-        "reborn_core.application.ports",
-    ),
 }
 
 
@@ -80,8 +74,6 @@ def test_clean_architecture_import_boundaries_do_not_regress():
         for module in _imported_modules(path):
             imported_layer = _layer_for_module(module)
             if imported_layer not in FORBIDDEN_IMPORTS[source_layer]:
-                continue
-            if (relative_path, module) in ALLOWED_LEGACY_IMPORTS:
                 continue
             violations.append(f"{relative_path} imports {module}")
 

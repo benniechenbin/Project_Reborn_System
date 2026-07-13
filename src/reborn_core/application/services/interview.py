@@ -10,14 +10,15 @@ from reborn_core.application.models import (
     InterviewMode,
     InterviewResult,
     ModelMetadata,
+    PromptContext,
     PromptMetadata,
 )
-from reborn_core.application.ports import ChatModel, IdentitySnapshotRepository, MemoryRepository
-from reborn_core.config import Settings
-from reborn_core.domains.brain.prompt_registry import (
-    PromptRegistry,
-    RenderedPrompt,
-    get_prompt_registry,
+from reborn_core.application.ports import (
+    ChatModel,
+    IdentitySnapshotRepository,
+    MemoryRepository,
+    PromptRendererPort,
+    RenderedPromptPort,
 )
 from reborn_core.observability import logger
 
@@ -34,15 +35,15 @@ class InterviewService:
         llm_router: ChatModel,
         memory_writer: MemoryRepository,
         identity_snapshots: IdentitySnapshotRepository,
-        app_settings: Settings,
-        prompt_registry: PromptRegistry | None = None,
+        prompt_context: PromptContext,
+        prompt_renderer: PromptRendererPort,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.llm = llm_router
         self.memory = memory_writer
         self.identity_snapshots = identity_snapshots
-        self.settings = app_settings
-        self.prompt_registry = prompt_registry or get_prompt_registry()
+        self.prompt_context = prompt_context
+        self.prompt_renderer = prompt_renderer
         self.clock = clock or (lambda: datetime.now(UTC))
 
     def process_interview(
@@ -158,12 +159,8 @@ class InterviewService:
     def _default_title(self) -> str:
         return f"memory_{self.clock().strftime('%m%d_%H%M%S')}"
 
-    def _render_prompt(self, prompt_id: str) -> RenderedPrompt:
-        context = {
-            "creator_name": self.settings.creator_name,
-            "child_nickname": self.settings.child_nickname,
-        }
-        return self.prompt_registry.render_from_context(prompt_id, context)
+    def _render_prompt(self, prompt_id: str) -> RenderedPromptPort:
+        return self.prompt_renderer.render_from_context(prompt_id, self.prompt_context.as_dict())
 
 
 def _sha256(content: str) -> str:

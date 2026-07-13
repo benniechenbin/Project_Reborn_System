@@ -2,8 +2,6 @@ from pathlib import Path
 import subprocess
 import sys
 
-import pytest
-
 import reborn_core.config as config
 from scripts.generate_env_example import DEFAULT_OUTPUT_FILE, build_env_example
 
@@ -33,7 +31,12 @@ def test_env_example_uses_defaults_and_hides_secrets():
     content = build_env_example()
 
     assert "LOG_DIR=logs" in content
-    assert "CREATOR_NAME=\n" in content
+    assert "PROJECT_PROFILE_PATH=data/project_profile.toml" in content
+    assert "CREATOR_NAME=" not in content
+    assert "CHILD_NAME=" not in content
+    assert "CHILD_NICKNAME=" not in content
+    assert "CHILD_GENDER=" not in content
+    assert "CHILD_BIRTHDAY=" not in content
     assert "LLM_MODEL_NAME=deepseek-chat" in content
     assert "STT_ENDPOINT=local" in content
     assert "例如 https://api.openai.com/v1 切换云端转写。" in content
@@ -56,17 +59,3 @@ def test_checked_in_env_example_is_current():
 def test_config_package_does_not_export_eager_settings_singleton():
     assert "settings" not in config.__all__
     assert not isinstance(getattr(config, "settings", None), config.Settings)
-
-
-def test_avatar_profile_requires_creator_name(test_settings):
-    test_settings.creator_name = None
-
-    with pytest.raises(ValueError, match="CREATOR_NAME"):
-        test_settings.require_avatar_profile()
-
-
-def test_avatar_profile_rejects_unsupported_child_gender(test_settings):
-    test_settings.child_gender = "未知"
-
-    with pytest.raises(ValueError, match="CHILD_GENDER"):
-        test_settings.require_avatar_profile()
