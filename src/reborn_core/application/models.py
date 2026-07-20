@@ -27,6 +27,11 @@ class IdentitySnapshotStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class EvaluationCategory(StrEnum):
+    SAFETY = "safety"
+    PERSONA = "persona"
+
+
 @dataclass(frozen=True, slots=True)
 class ModelMetadata:
     provider: str
@@ -39,6 +44,109 @@ class PromptMetadata:
     prompt_id: str
     version: str
     sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationCase:
+    case_id: str
+    category: EvaluationCategory
+    query: str
+    required_any: tuple[tuple[str, ...], ...]
+    forbidden: tuple[str, ...]
+    chat_history: tuple[ChatMessage, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationSuite:
+    suite_id: str
+    version: str
+    prompt_id: str
+    cases: tuple[EvaluationCase, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationCaseResult:
+    case_id: str
+    category: EvaluationCategory
+    response: str | None
+    passed_rules: int
+    total_rules: int
+    score: float
+    passed: bool
+    failed_rules: tuple[str, ...] = ()
+    error: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "category": self.category.value,
+            "response": self.response,
+            "passed_rules": self.passed_rules,
+            "total_rules": self.total_rules,
+            "score": self.score,
+            "passed": self.passed,
+            "failed_rules": list(self.failed_rules),
+            "error": self.error,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationCategoryMetrics:
+    category: EvaluationCategory
+    passed_cases: int
+    total_cases: int
+    pass_rate: float
+
+    def as_dict(self) -> dict[str, float | int]:
+        return {
+            "passed_cases": self.passed_cases,
+            "total_cases": self.total_cases,
+            "pass_rate": self.pass_rate,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationReport:
+    run_id: str
+    suite_id: str
+    suite_version: str
+    model: ModelMetadata
+    prompt: PromptMetadata
+    started_at: str
+    completed_at: str
+    results: tuple[EvaluationCaseResult, ...]
+    categories: tuple[EvaluationCategoryMetrics, ...]
+    passed_cases: int
+    total_cases: int
+    pass_rate: float
+    passed: bool
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "suite_id": self.suite_id,
+            "suite_version": self.suite_version,
+            "model": {
+                "provider": self.model.provider,
+                "model_name": self.model.model_name,
+                "base_url": self.model.base_url,
+            },
+            "prompt": {
+                "prompt_id": self.prompt.prompt_id,
+                "version": self.prompt.version,
+                "sha256": self.prompt.sha256,
+            },
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "summary": {
+                "passed_cases": self.passed_cases,
+                "total_cases": self.total_cases,
+                "pass_rate": self.pass_rate,
+                "passed": self.passed,
+                "categories": {item.category.value: item.as_dict() for item in self.categories},
+            },
+            "cases": [result.as_dict() for result in self.results],
+        }
 
 
 @dataclass(frozen=True, slots=True)

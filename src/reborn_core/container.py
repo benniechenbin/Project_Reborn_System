@@ -3,12 +3,15 @@ from typing import TYPE_CHECKING, Any
 
 from reborn_core.application.models import (
     ChatMessage,
+    EvaluationReport,
+    EvaluationSuite,
     InterviewMode,
     MemoryVaultLayout,
     PromptContext,
 )
 from reborn_core.application.services import (
     AvatarService,
+    EvaluateRunner,
     IdentityGovernanceService,
     InterviewService,
     SyncService,
@@ -210,6 +213,27 @@ class Container:
         )
 
     @cached_property
+    def evaluate_runner(self) -> EvaluateRunner:
+        from reborn_core.application.models import PromptMetadata
+        from reborn_core.core.exceptions import ConfigurationError
+
+        try:
+            conversation = self.avatar_service
+            model_metadata = self.llm_router.model_metadata
+            prompt = self.prompt_registry.load("avatar_rag_framework")
+        except ValueError as exc:
+            raise ConfigurationError(f"Could not configure evaluation runner: {exc}") from exc
+        return EvaluateRunner(
+            conversation=conversation,
+            model_metadata=model_metadata,
+            prompt_metadata=PromptMetadata(
+                prompt_id=prompt.prompt_id,
+                version=prompt.version,
+                sha256=prompt.template_sha256,
+            ),
+        )
+
+    @cached_property
     def rag_engine(self) -> AvatarService:
         return self.avatar_service
 
@@ -251,6 +275,9 @@ class Container:
     # 这些方法会特意在后台工作线程中解析并加载重量级惰性依赖。
     def run_sync(self):
         return self.sync_service.execute_full_sync()
+
+    def run_evaluation(self, suite: EvaluationSuite) -> EvaluationReport:
+        return self.evaluate_runner.run(suite)
 
     def run_interview(
         self,

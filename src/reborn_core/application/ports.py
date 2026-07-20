@@ -118,6 +118,17 @@ class MemoryGapRepositoryPort(Protocol):
     def record_gap(self, query: str, score: float, occurred_at: datetime) -> None: ...
 
 
+class EvaluationConversationPort(Protocol):
+    def generate_avatar_response(
+        self,
+        user_query: str,
+        chat_history: list[dict[str, str]] | None = None,
+        *,
+        temperature: float = 0.7,
+        record_memory_gap: bool = True,
+    ) -> tuple[str, list[Any]]: ...
+
+
 class SyncHistoryRepository(Protocol):
     def save_sync_record(self, metrics: dict[str, float | int | str | None]) -> None: ...
 

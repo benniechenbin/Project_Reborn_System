@@ -15,6 +15,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("check")
     sub.add_parser("sync")
+    evaluate = sub.add_parser("evaluate")
+    evaluate.add_argument("--suite", type=Path)
     sub.add_parser("backup")
     verify = sub.add_parser("verify-backup")
     verify.add_argument("path", type=Path)
@@ -46,6 +48,15 @@ def main(argv: list[str] | None = None) -> int:
             elif args.command == "sync":
                 task_id = container.task_runner.submit("memory_sync", container.run_sync)
                 print(container.task_runner.result(task_id).as_dict())
+            elif args.command == "evaluate":
+                from reborn_core.infrastructure.evaluation import load_evaluation_suite
+
+                suite_path = args.suite or (
+                    container.settings.base_dir / "docs" / "eval" / "child-safety-persona.v1.json"
+                )
+                report = container.run_evaluation(load_evaluation_suite(suite_path))
+                print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
+                return 0 if report.passed else 1
             elif args.command == "backup":
                 task_id = container.task_runner.submit("encrypted_backup", container.run_backup)
                 print(container.task_runner.result(task_id))

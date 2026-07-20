@@ -1,6 +1,12 @@
 """应用用例与稳定端口。"""
 
 from reborn_core.application.models import (
+    EvaluationCase,
+    EvaluationCaseResult,
+    EvaluationCategory,
+    EvaluationCategoryMetrics,
+    EvaluationReport,
+    EvaluationSuite,
     IdentitySnapshot,
     IdentitySnapshotStatus,
     InterviewMode,
@@ -12,6 +18,7 @@ from reborn_core.application.models import (
 )
 from reborn_core.application.services import (
     AvatarService,
+    EvaluateRunner,
     IdentityGovernanceService,
     InterviewService,
     SyncService,
@@ -19,6 +26,13 @@ from reborn_core.application.services import (
 
 __all__ = [
     "AvatarService",
+    "EvaluateRunner",
+    "EvaluationCase",
+    "EvaluationCaseResult",
+    "EvaluationCategory",
+    "EvaluationCategoryMetrics",
+    "EvaluationReport",
+    "EvaluationSuite",
     "IdentityGovernanceService",
     "IdentitySnapshot",
     "IdentitySnapshotStatus",
