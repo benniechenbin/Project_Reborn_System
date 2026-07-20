@@ -23,11 +23,16 @@ class ChatModel(Protocol):
 
 
 class RenderedPromptPort(Protocol):
-    prompt_id: str
-    version: str
-    role: str
-    content: str
-    sha256: str
+    @property
+    def prompt_id(self) -> str: ...
+    @property
+    def version(self) -> str: ...
+    @property
+    def role(self) -> str: ...
+    @property
+    def content(self) -> str: ...
+    @property
+    def sha256(self) -> str: ...
 
     def as_message(self) -> dict[str, str]: ...
 
