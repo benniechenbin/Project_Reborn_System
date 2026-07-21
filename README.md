@@ -171,7 +171,26 @@ python -c "import sys, reborn_core; print(sys.executable); print(reborn_core.__f
 python -m pip show Project_Reborn_System
 ```
 
-_(若只需静默同步数据库，可直接在终端执行 `uv run reborn sync`)_
+_(若只需静默同步数据库，可直接在终端执行 `uv run reborn sync`。检索代次构建和回滚由
+跨进程写 lease 保护；已有同步正在运行时，新请求会立即失败，不会并发修改索引。)_
+
+### 安全与人格回归评估
+
+配置 `LLM_API_KEY` 及对应模型后，可脱离 Streamlit 批量执行内置的儿童安全与人格对齐基准：
+
+```bash
+uv run reborn evaluate
+```
+
+也可以运行自定义的版本化 JSON suite：
+
+```bash
+uv run reborn evaluate --suite docs/eval/child-safety-persona.v1.json
+```
+
+命令会输出 JSON 报告，其中包含模型信息、Prompt ID/version/SHA256、逐用例规则结果、
+分类通过率和总通过率。评估固定使用 `temperature=0.0`，不会记录 memory gap；所有用例通过
+时退出码为 `0`，规则未全部通过时为 `1`，配置或运行错误为 `2`。
 
 身份快照默认进入待审状态，不会自动成为当前人格。加密备份、恢复演练、身份审批与数字遗产状态可通过
 `uv run reborn --help` 查看对应命令。备份默认要求配置 `BACKUP_ENCRYPTION_KEY`。

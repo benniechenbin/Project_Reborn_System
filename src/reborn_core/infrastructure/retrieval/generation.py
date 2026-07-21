@@ -10,6 +10,8 @@ from typing import Any, Protocol
 
 from reborn_core.observability import logger
 
+from .lease import CrossProcessFileLease
+
 
 class GenerationVectorStore(Protocol):
     def add_documents(self, documents: list[Any]) -> None: ...
@@ -37,6 +39,8 @@ class RetrievalGenerationManager:
         self.provider_factory = provider_factory
         self.retention = max(retention, 2)
         self._lock = threading.RLock()
+        self._write_lease = CrossProcessFileLease(root)
+        self.lease_path = self._write_lease.metadata_path
         self._active_store: GenerationVectorStore | None = None
         self._active_store_id: str | None = None
 
@@ -46,7 +50,7 @@ class RetrievalGenerationManager:
     def build_and_activate(self, documents: list[Any]) -> str:
         if not documents:
             raise ValueError("Cannot build a retrieval generation without documents")
-        with self._lock:
+        with self._lock, self._write_lease.acquire("build_and_activate"):
             self.initialize()
             generation_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:10]}"
             generation_dir = self.generations_dir / generation_id
@@ -131,7 +135,7 @@ class RetrievalGenerationManager:
         return self.active_retriever().search(query, top_k)
 
     def rollback(self, generation_id: str) -> None:
-        with self._lock:
+        with self._lock, self._write_lease.acquire("rollback"):
             generation_dir = self._generation_path(generation_id)
             manifest = json.loads((generation_dir / "manifest.json").read_text(encoding="utf-8"))
             if manifest.get("status") != "ready":

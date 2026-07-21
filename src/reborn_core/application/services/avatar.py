@@ -39,12 +39,15 @@ class AvatarService:
         self,
         user_query: str,
         chat_history: list[dict[str, str]] | None = None,
+        *,
+        temperature: float = 0.7,
+        record_memory_gap: bool = True,
     ) -> tuple[str, list[Any]]:
         l1 = self._get_level_1_rom()
         l2 = self._get_level_2_personality()
         l3_text, max_score, references = self._get_level_3_ram(user_query)
 
-        if max_score < -0.8:
+        if record_memory_gap and max_score < -0.8:
             self._record_memory_gap(user_query, max_score)
 
         full_system_prompt = self.prompt_renderer.render(
@@ -68,7 +71,7 @@ class AvatarService:
         messages.append({"role": "user", "content": user_query})
 
         logger.info("Avatar is generating a response. RAM recall score: {}", max_score)
-        response_text = self.llm_router.generate_response(messages)
+        response_text = self.llm_router.generate_response(messages, temperature=temperature)
         return response_text, references
 
     def _calculate_child_age_and_tone(self) -> str:

@@ -22,6 +22,12 @@ class InfrastructureError(RebornError):
     pass
 
 
+class ConcurrencyConflictError(RebornError):
+    """当互斥业务操作已由另一个执行者持有时抛出。"""
+
+    pass
+
+
 class SecurityError(RebornError):
     """当检测到非法访问或安全策略冲突时抛出。"""
 
