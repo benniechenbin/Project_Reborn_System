@@ -4,7 +4,7 @@ import json
 import os
 import socket
 import uuid
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,7 +23,7 @@ class CrossProcessFileLease:
         self.metadata_path = root / "generation_write_lease.json"
 
     @contextmanager
-    def acquire(self, operation: str) -> Iterator[dict[str, str | int]]:
+    def acquire(self, operation: str) -> Generator[dict[str, str | int], None, None]:
         """Acquire the write lease or fail immediately when another process owns it."""
         try:
             self.root.mkdir(parents=True, exist_ok=True)
