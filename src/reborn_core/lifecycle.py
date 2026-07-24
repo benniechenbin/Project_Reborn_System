@@ -1,7 +1,7 @@
 import atexit
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from collections.abc import Generator
 
 from reborn_core.config import Settings
 from reborn_core.container import Container

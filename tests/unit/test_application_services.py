@@ -191,7 +191,7 @@ class StubHistory:
 def test_sync_keeps_existing_generation_when_no_documents():
     generations = StubGenerations()
     history = StubHistory()
-    service = SyncService(StubScanner(), lambda: [], generations, history)
+    service = SyncService(StubScanner(), list, generations, history)
 
     result = service.execute_full_sync()
 
@@ -211,7 +211,7 @@ def test_sync_records_activated_generation():
 
 def test_sync_service_lists_history_from_repository():
     history = StubHistory()
-    service = SyncService(StubScanner(), lambda: [], StubGenerations(), history)
+    service = SyncService(StubScanner(), list, StubGenerations(), history)
 
     assert service.list_history() == history.history
 

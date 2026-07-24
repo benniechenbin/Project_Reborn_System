@@ -1,9 +1,10 @@
-import pytest
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
+
+import pytest
 
 from reborn_core.application.services.avatar import AvatarService
 from reborn_core.infrastructure.memory import JsonMemoryGapRepository, ObsidianAvatarMemoryContext
@@ -34,7 +35,7 @@ def rag_engine(memory_vault_layout, family_profile, mock_dependencies):
     llm_router, vector_db = mock_dependencies
 
     def mock_clock():
-        return datetime(2026, 6, 4)
+        return datetime(2026, 6, 4, tzinfo=UTC)
 
     engine = _make_avatar_service(
         memory_vault_layout,
@@ -90,7 +91,7 @@ def test_rag_age_routing_toddler(rag_engine, memory_vault_layout, mock_dependenc
         profile,
         llm_router,
         vector_db,
-        clock=lambda: datetime(2026, 6, 4),
+        clock=lambda: datetime(2026, 6, 4, tzinfo=UTC),
     )
 
     tone_info = engine._calculate_child_age_and_tone()
@@ -109,7 +110,7 @@ def test_rag_age_routing_teenager(rag_engine, memory_vault_layout, mock_dependen
         profile,
         llm_router,
         vector_db,
-        clock=lambda: datetime(2026, 6, 4),
+        clock=lambda: datetime(2026, 6, 4, tzinfo=UTC),
     )
 
     tone_info = engine._calculate_child_age_and_tone()
@@ -128,7 +129,7 @@ def test_rag_age_routing_adult(rag_engine, memory_vault_layout, mock_dependencie
         profile,
         llm_router,
         vector_db,
-        clock=lambda: datetime(2026, 6, 4),
+        clock=lambda: datetime(2026, 6, 4, tzinfo=UTC),
     )
 
     tone_info = engine._calculate_child_age_and_tone()

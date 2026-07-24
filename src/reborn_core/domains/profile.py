@@ -43,9 +43,9 @@ class ChildProfile:
         if not self.nickname.strip():
             raise ValueError("Child nickname is required.")
         if not isinstance(self.gender, ChildGender):
-            raise ValueError("Child gender must be a ChildGender value.")
+            raise TypeError("Child gender must be a ChildGender value.")
         if not isinstance(self.birthday, date):
-            raise ValueError("Child birthday must be a date.")
+            raise TypeError("Child birthday must be a date.")
 
 
 @dataclass(frozen=True, slots=True)

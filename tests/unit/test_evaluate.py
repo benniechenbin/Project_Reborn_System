@@ -14,9 +14,9 @@ from reborn_core.application.models import (
     PromptMetadata,
 )
 from reborn_core.application.services import EvaluateRunner
+from reborn_core.config import Settings
 from reborn_core.container import Container
 from reborn_core.core.exceptions import ConfigurationError
-from reborn_core.config import Settings
 from reborn_core.infrastructure.evaluation import load_evaluation_suite
 
 

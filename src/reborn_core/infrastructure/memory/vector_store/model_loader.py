@@ -1,7 +1,9 @@
-import os
 import functools
+import os
 from pathlib import Path
-from sentence_transformers import SentenceTransformer, CrossEncoder
+
+from sentence_transformers import CrossEncoder, SentenceTransformer
+
 from reborn_core.observability import logger
 
 

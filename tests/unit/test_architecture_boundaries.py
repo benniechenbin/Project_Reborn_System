@@ -1,7 +1,6 @@
 import ast
 from pathlib import Path
 
-
 SOURCE_ROOT = Path(__file__).parents[2] / "src" / "reborn_core"
 LAYERS = {"application", "config", "domains", "infrastructure", "interfaces", "observability"}
 FORBIDDEN_IMPORTS = {

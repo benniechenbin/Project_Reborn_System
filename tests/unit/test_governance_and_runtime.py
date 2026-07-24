@@ -1,17 +1,17 @@
 import time
 
-from cryptography.fernet import Fernet
 import pytest
+from cryptography.fernet import Fernet
 
-from reborn_core.domains import LegacyActivationMode
 from reborn_core.core.exceptions import ConfigurationError
+from reborn_core.domains import LegacyActivationMode
+from reborn_core.infrastructure.backup import BackupService
 from reborn_core.infrastructure.database import (
     MigrationRunner,
     SQLiteBackupRecordRepository,
     SQLiteDatabase,
     SQLiteTaskRepository,
 )
-from reborn_core.infrastructure.backup import BackupService
 from reborn_core.runtime import BackgroundTaskRunner, TaskStatus
 from reborn_core.security import LegacyActivationPolicy, LocalOwnerAccessPolicy
 

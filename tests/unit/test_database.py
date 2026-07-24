@@ -133,10 +133,9 @@ def test_database_transaction_commit_and_rollback(database):
     with database.transaction() as conn:
         conn.execute("INSERT INTO sync_history (sync_time) VALUES (?)", ("2026-01-01",))
 
-    with pytest.raises(ValueError, match="rollback"):
-        with database.transaction() as conn:
-            conn.execute("INSERT INTO sync_history (sync_time) VALUES (?)", ("2026-01-02",))
-            raise ValueError("rollback")
+    with pytest.raises(ValueError, match="rollback"), database.transaction() as conn:
+        conn.execute("INSERT INTO sync_history (sync_time) VALUES (?)", ("2026-01-02",))
+        raise ValueError("rollback")
 
     with database.get_connection() as conn:
         count = conn.execute("SELECT COUNT(*) FROM sync_history").fetchone()[0]

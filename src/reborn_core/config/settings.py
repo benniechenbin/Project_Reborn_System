@@ -1,7 +1,7 @@
 import os
 import platform
 from pathlib import Path
-from typing import Literal, Any
+from typing import Any, Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -176,12 +176,6 @@ class Settings(BaseSettings):
     REBORN_TARGET_FOLDERS: tuple[str, ...] = Field(
         default=("02_Values", "03_Stories"),
         description="需要摄入检索索引的 Obsidian 目录",
-    )
-
-    model_config = SettingsConfigDict(
-        env_file=str(BASE_DIR / ".env"),
-        env_file_encoding="utf-8",
-        extra="ignore",
     )
 
     @field_validator(

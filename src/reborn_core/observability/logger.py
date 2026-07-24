@@ -8,15 +8,15 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from loguru import logger as logger
+from loguru import logger
 
 __all__ = [
+    "add_custom_file",
+    "get_trace_id",
     "logger",
+    "set_trace_id",
     "setup_logger",
     "shutdown_logger",
-    "add_custom_file",
-    "set_trace_id",
-    "get_trace_id",
     "trace_context",
     "trace_id_var",
 ]

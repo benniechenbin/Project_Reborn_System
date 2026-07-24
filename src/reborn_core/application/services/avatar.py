@@ -9,8 +9,8 @@ from reborn_core.application.ports import (
     MemoryRetriever,
     PromptRendererPort,
 )
-from reborn_core.domains.brain.age_tone import build_child_age_tone
 from reborn_core.domains import FamilyProfile
+from reborn_core.domains.brain.age_tone import build_child_age_tone
 from reborn_core.observability import logger
 
 

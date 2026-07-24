@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -19,7 +19,7 @@ def test_calculate_child_age_and_tone(birthday, expected_age, expected_tone):
         child_nickname="明明",
         child_gender="男",
         child_birthday=date.fromisoformat(birthday),
-        now=datetime(2026, 5, 29),
+        now=datetime(2026, 5, 29, tzinfo=UTC),
     )
 
     assert expected_age in tone_info

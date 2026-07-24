@@ -1,9 +1,9 @@
 import re
-from pathlib import Path
 from collections.abc import Sequence
+from pathlib import Path
 
-from reborn_core.observability import logger
 from reborn_core.infrastructure.knowledge.frontmatter import parse_frontmatter
+from reborn_core.observability import logger
 from reborn_core.utils.parsers import clean_markdown_noise
 
 

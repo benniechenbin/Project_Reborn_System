@@ -8,7 +8,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import BinaryIO, Any
+from typing import Any, BinaryIO
 
 from reborn_core.core.exceptions import ConcurrencyConflictError, InfrastructureError
 from reborn_core.observability import logger

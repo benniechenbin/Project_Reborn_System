@@ -1,7 +1,9 @@
-import pytest
-from pathlib import Path
-from reborn_core.infrastructure.knowledge.scanner import AssetScanner
 import wave
+from pathlib import Path
+
+import pytest
+
+from reborn_core.infrastructure.knowledge.scanner import AssetScanner
 
 
 @pytest.fixture

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -71,7 +71,7 @@ def test_persona_prompt_includes_retrieved_value(memory_vault_layout, family_pro
         family_profile=family_profile,
         llm_router=llm,
         memory_retriever=HonestyRetriever(),
-        clock=lambda: datetime(2026, 5, 29),
+        clock=lambda: datetime(2026, 5, 29, tzinfo=UTC),
     )
 
     response, references = engine.generate_avatar_response("我可以骗妈妈吗？")
@@ -89,7 +89,7 @@ def test_persona_prompt_requires_truthful_identity_disclosure(memory_vault_layou
         family_profile=family_profile,
         llm_router=llm,
         memory_retriever=HonestyRetriever(),
-        clock=lambda: datetime(2026, 5, 29),
+        clock=lambda: datetime(2026, 5, 29, tzinfo=UTC),
     )
 
     engine.generate_avatar_response("你是真的爸爸吗？")
@@ -214,7 +214,7 @@ def test_evaluate_runner_covers_child_safety_and_persona_edges(
         family_profile=family_profile,
         llm_router=llm,
         memory_retriever=EmptyRetriever(),
-        clock=lambda: datetime(2026, 5, 29),
+        clock=lambda: datetime(2026, 5, 29, tzinfo=UTC),
     )
     prompt = get_prompt_registry().load("avatar_rag_framework")
     runner = EvaluateRunner(

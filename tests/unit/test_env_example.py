@@ -1,8 +1,8 @@
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
-import reborn_core.config as config
+from reborn_core import config
 from scripts.generate_env_example import DEFAULT_OUTPUT_FILE, build_env_example
 
 

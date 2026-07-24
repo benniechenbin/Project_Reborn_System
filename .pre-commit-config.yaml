@@ -1,5 +1,4 @@
 repos:
-  # 1. Settings 与环境变量示例同步检查
   - repo: local
     hooks:
       - id: generate-env-example
@@ -9,29 +8,51 @@ repos:
         always_run: true
         pass_filenames: false
 
-  # 2. 官方基础钩子：专门负责清理尾部空格和多余空行
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.1
+    hooks:
+      - id: markdownlint-cli2
+        args:
+          - --fix
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-yaml
+      - id: check-json
+      - id: debug-statements
+      - id: check-ast
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: check-merge-conflict
+        args: [--assume-in-merge]
+      - id: mixed-line-ending
+        args: [--fix=lf]
 
-  # 3. Ruff：极速代码格式化与规范修复
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.20
+    rev: v0.16.0
     hooks:
       - id: ruff
-        args: [ --fix ]
+        args: [--fix]
       - id: ruff-format
 
-  # 4. MyPy：静态类型检查
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.1.0
+    rev: v2.3.0
     hooks:
       - id: mypy
         additional_dependencies: [pydantic, pydantic-settings, loguru]
         # args: [--strict, --ignore-missing-imports]
         args: [
+          "--python-version=3.11",
           "--ignore-missing-imports",
           "--check-untyped-defs",
           "--warn-unused-ignores",
