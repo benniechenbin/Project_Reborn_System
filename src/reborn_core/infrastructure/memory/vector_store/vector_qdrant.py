@@ -4,7 +4,7 @@ import os
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import jieba
 from langchain_core.documents import Document
@@ -49,7 +49,7 @@ class QdrantDBProvider(BaseVectorDB):
         app_settings: Settings,
         vector_db_path: Path | None = None,
         encoder: Any | None = None,
-        reranker_loader: Callable[[Path, str], Any] = load_reranker_model,
+        reranker_loader: Callable[[Path, str], Any] | Callable[[], Any] = load_reranker_model,
     ) -> None:
         self.encoder = encoder or load_embedding_model(
             models_dir=app_settings.resolved_models_dir,
@@ -77,7 +77,8 @@ class QdrantDBProvider(BaseVectorDB):
 
         self._reranker_loader: Callable[[], Any]
         if has_params:
-            self._reranker_loader = lambda: reranker_loader(
+            loader_with_args = cast(Callable[[Path, str], Any], reranker_loader)
+            self._reranker_loader = lambda: loader_with_args(
                 app_settings.resolved_models_dir,
                 app_settings.hf_mirror,
             )
