@@ -19,7 +19,7 @@ dependencies = [
     "langchain-qdrant==1.1.0",
     "langchain-text-splitters==1.1.2",
     "loguru>=0.7.2",
-    "modelscope>=1.38.1",
+    "modelscope>=1.39.0",
     "numpy<2.0.0",
     "openai>=2.48.0",
     "pandas>=3.0.5",
