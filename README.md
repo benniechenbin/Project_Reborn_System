@@ -13,12 +13,14 @@
 
 ### 📖 About The Project
 
-**Project Reborn** is a digital companionship system aimed at providing a digital lifeform to accompany a child growing up in the event of their parents' early passing. It is designed as a highly personalized two-phase private customization product:
+**Project Reborn** is a **digital legacy companionship system** designed for the scenario where parents unexpectedly pass away while their children are still young. Its core mission is to digitize a parent's personality while they are alive, and to provide a digital twin — carrying the parent's values, language patterns, and life wisdom — as a companionship AI for their minor children after the parent's passing.
 
-- **Phase 1 (Current Development):** Recording the parents' living habits, values, and language patterns through handwritten texts and AI interviews, bridging the creator's **Second Brain (Obsidian)** with a core memory architecture.
-- **Phase 2 (Future Integration):** Connecting with digital human avatars and voice cloning technologies to create an interactive, autonomous digital entity.
+The project is structured in two major phases:
 
-Ultimately, it acts as an interactive **Avatar Sandbox**, aiming to provide continuous companionship, guidance, and preserving a human creator's core legacy.
+- **Phase 1 — Soul Capture (Current Focus):** While the parent is alive, record their life habits, values, and way of speaking through written documents and AI interviews. Build a local, auditable personality knowledge base anchored in their Second Brain (Obsidian vault).
+- **Phase 2 — Digital Twin Activation (Future Plan):** After the parent's passing, activate the digital legacy. Connect voice cloning (GPT-SoVITS) and digital avatar technologies to enable an embodied, interactive companionship experience.
+
+> **⚖️ Ethical Stance (TBD):** Whether the digital twin should identify itself as an AI robot or roleplay as a parental avatar is an open ethical question involving child psychology and trust. This is intentionally left as a research question and is not pre-decided at the engineering level.
 
 ### 🏗️ Core Architecture (Hierarchical Memory)
 
@@ -81,10 +83,14 @@ The root `app.py` is a compatibility launcher. The Streamlit implementation live
 
 ### 📖 项目简介
 
-**Project Reborn (数字生命引擎)** 的最终目标是一个数字陪伴系统，其核心愿景是在孩子幼年时若父母不幸离世，能够提供一个陪伴孩子成长的数字生命体。如果未来商业化，这将是一个双阶段的私人定制产品。项目整体分为两个阶段：
+**Project Reborn（数字遗产陪伴系统）** 是一套以**家长意外离世**为前提场景的数字遗产系统。核心目标是：在家长在世时完成人格数字化建档，在家长离世后为未成年子女提供一个能够延续家长人格、价值观与陪伴意义的数字分身。
 
-- **第一阶段（当前进行中）：** 通过手写记录以及 AI 采访等方式，深度记录父母的生活习惯、价值观、语言习惯等。将创作者的**第二大脑（Obsidian 知识库）**与底层记忆模型结合，永久封存底层逻辑与人生故事。
-- **第二阶段（未来规划）：** 接入数字人、语音克隆等前端技术栈，结合动态交互的**陪伴沙盒**，最终生成一个具有真实人格厚度、能够独立思考并提供陪伴的数字实体。
+> **⚖️ 伦理定位（待定）：** 数字分身在与子女对话时，是明确声明自己是 AI 机器人，还是以模拟家长分身的视角进行交互，该问题涉及复杂的儿童心理与伦理边界，当前列为待定研究方向，不在工程层面预设答案。
+
+项目整体分为两大阶段：
+
+- **第一阶段（当前重点）：** 家长在世时，通过自己撰写的文档以及 AI 采访方式，深度记录生活习惯、价值观、语言习惯等灵魂快照。将**第二大脑（Obsidian 知识库）**与本地记忆架构结合，构建可维护、可回滚、可本地运行的人格知识库。
+- **第二阶段（未来规划，暂缓）：** 家长离世后激活数字遗产，接入语音克隆（GPT-SoVITS）与数字人驱动技术，为子女提供具有家长音色与形象的具身陪伴体验。
 
 ### 🏗️ 核心架构 (ROM/RAM 分层记忆模型)
 
@@ -229,15 +235,22 @@ Project_Reborn_System/
 
 ### 🗺️ 演进路线 (Roadmap)
 
-- [x] Phase 1: 工业级目录重构与底层向量库/SQLite搭建
+完整路线详见 [ROADMAP.md](ROADMAP.md)。以下为高层摘要：
 
-- [x] Phase 2: 灵魂采访室落地与 Obsidian 数据闭环 (Path B)
+**第一部分：人格构建阶段（当前重点）**
 
-- [ ] Phase 3: AvatarService/RAG 核心逻辑与陪伴沙盒持续打通
+- [x] P1-A：基础架构与数据底座（Clean Architecture、Qdrant、SQLite、备份加密）
+- [x] P1-B 前段：灵魂采访室、Obsidian 同步管道、身份快照治理
+- [ ] P1-B 后段：RAG 引擎打通、数据源追踪（SourceArtifact）、跨进程锁
+- [ ] P1-C：人格校验与安全对齐（Evaluate Runner、夜间反思、提示词版本化）
+- [ ] P1-D：系统生产化（持久化任务队列、数据治理、年度恢复演练）
 
-- [ ] Phase 4: 接入 GPT-SoVITS 本地音色克隆
+**第二部分：数字分身激活阶段（未来规划，暂缓）**
 
-- [ ] Phase 5: 数字人前端（面部/口型驱动）
+- [ ] P2-A：数字遗产激活机制（状态机、授权文件、子女访问控制）
+- [ ] P2-B：语音克隆接入（GPT-SoVITS，STT→RAG→TTS 全链路）
+- [ ] P2-C：数字人形象接入（面部驱动、口型同步）
+- [ ] P2-D：长期陪伴策略（年龄语气路由、成长记录、伦理边界研究）
 
 ### 🙏 致谢与生态整合 (Acknowledgements & Integrations)
 
