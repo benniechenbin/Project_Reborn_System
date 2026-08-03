@@ -172,18 +172,29 @@ class SQLiteIdentitySnapshotRepository:
 
 
 class SQLiteTaskRepository:
-    """Persists background task state in SQLite."""
+    """Persists and atomically dispatches background tasks in SQLite."""
 
     def __init__(self, database: SQLiteDatabase) -> None:
         self.database = database
 
-    def create_task(self, task: TaskRecord) -> None:
-        with self.database.get_connection() as conn:
+    def enqueue_task(self, task: TaskRecord) -> None:
+        with self.database.transaction() as conn:
+            active = conn.execute(
+                """
+                SELECT task_id FROM background_tasks
+                WHERE kind = ? AND status IN (?, ?)
+                LIMIT 1
+                """,
+                (task.kind, TaskStatus.QUEUED.value, TaskStatus.RUNNING.value),
+            ).fetchone()
+            if active is not None:
+                raise ValueError(f"A background task of kind '{task.kind}' is already running")
             conn.execute(
                 """
-                INSERT INTO background_tasks
-                    (task_id, kind, status, created_at, updated_at, result_json, error)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO background_tasks (
+                    task_id, kind, status, created_at, updated_at,
+                    payload_json, result_json, error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task.task_id,
@@ -191,11 +202,47 @@ class SQLiteTaskRepository:
                     task.status.value,
                     task.created_at,
                     task.updated_at,
+                    task.payload_json,
                     task.result_json,
                     task.error,
                 ),
             )
-            conn.commit()
+
+    def claim_next_queued_task(self) -> TaskRecord | None:
+        with self.database.transaction() as conn:
+            row = conn.execute(
+                """
+                SELECT task_id FROM background_tasks
+                WHERE status = ?
+                ORDER BY created_at ASC, task_id ASC
+                LIMIT 1
+                """,
+                (TaskStatus.QUEUED.value,),
+            ).fetchone()
+            if row is None:
+                return None
+            task_id = str(row["task_id"])
+            now = datetime.now(UTC).isoformat()
+            cursor = conn.execute(
+                """
+                UPDATE background_tasks
+                SET status = ?, updated_at = ?, error = NULL
+                WHERE task_id = ? AND status = ?
+                """,
+                (
+                    TaskStatus.RUNNING.value,
+                    now,
+                    task_id,
+                    TaskStatus.QUEUED.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                return None
+            claimed = conn.execute(
+                "SELECT * FROM background_tasks WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+        return _task_from_row(claimed) if claimed is not None else None
 
     def update_task(
         self,
@@ -221,17 +268,7 @@ class SQLiteTaskRepository:
                 "SELECT * FROM background_tasks WHERE task_id = ?",
                 (task_id,),
             ).fetchone()
-        if row is None:
-            return None
-        return TaskRecord(
-            task_id=row["task_id"],
-            kind=row["kind"],
-            status=TaskStatus(row["status"]),
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
-            result_json=row["result_json"],
-            error=row["error"],
-        )
+        return _task_from_row(row) if row is not None else None
 
     def has_active_task_of_kind(self, kind: str) -> bool:
         with self.database.get_connection() as conn:
@@ -245,24 +282,36 @@ class SQLiteTaskRepository:
             ).fetchone()
         return row is not None
 
-    def mark_unfinished_tasks_failed(self) -> int:
+    def recover_interrupted_tasks(self) -> int:
         with self.database.get_connection() as conn:
             cursor = conn.execute(
                 """
                 UPDATE background_tasks
                 SET status = ?, updated_at = ?, error = ?
-                WHERE status IN (?, ?)
+                WHERE status = ?
                 """,
                 (
                     TaskStatus.FAILED.value,
                     datetime.now(UTC).isoformat(),
-                    "Process restarted before the task completed",
-                    TaskStatus.QUEUED.value,
+                    "Process restarted after the task began executing",
                     TaskStatus.RUNNING.value,
                 ),
             )
             conn.commit()
             return cursor.rowcount
+
+
+def _task_from_row(row: sqlite3.Row) -> TaskRecord:
+    return TaskRecord(
+        task_id=str(row["task_id"]),
+        kind=str(row["kind"]),
+        status=TaskStatus(row["status"]),
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+        payload_json=row["payload_json"],
+        result_json=row["result_json"],
+        error=row["error"],
+    )
 
 
 class SQLiteBackupRecordRepository:

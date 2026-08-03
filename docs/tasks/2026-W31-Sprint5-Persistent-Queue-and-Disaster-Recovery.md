@@ -47,3 +47,23 @@
 1. **Worker 崩溃恢复测试**：在 `tests/unit/test_governance_and_runtime.py` 中编写用例，模拟系统在任务 `queued` 状态下强行重启，断言新的 Runner 实例能够正确接管并完成历史堆积任务。
 2. **密钥轮换回归测试**：构建包含旧密钥加密历史文件的测试夹具，验证轮换操作后的新文件哈希校验及 `PRAGMA integrity_check` 均 100% 通过。
 3. **架构纪律守护**：严守 `AGENTS.md` 中的红线，确保 `runtime` 层的任务抽象依然不依赖具体的业务用例，保持底层调度的纯净度。
+
+---
+
+## 实施与验收记录（2026-08-03）
+
+### 已完成
+
+- SQLite migration v5 增加持久化任务载荷和队列索引；Repository 提供原子入队、认领和启动恢复。
+- 全部生产后台任务改为 Container 注册处理器，queued 任务可由新 Runner 接管；running 任务重启后明确失败。
+- 备份服务支持 BACKUP_PREVIOUS_ENCRYPTION_KEY，轮换过程保留源文件，并在原子发布前验证文件哈希和 SQLite 完整性。
+- Streamlit 治理页已增加密钥配置状态和轮换入口，旧密钥不会进入 SQLite 任务载荷。
+- 已新增独立的 scripts/offline_restore.py 与 docs/ops/offline_recovery_manual.md，兼容 RBN1 分块和早期 Fernet 备份。
+- 未提前实现 W32 的独立 worker CLI，也未修改用户数据、现有备份或 Obsidian 源文件。
+
+### 验收
+
+- targeted tests：35 passed，覆盖队列接管、并发认领、载荷往返、密钥轮换、离线恢复、迁移、生命周期和架构边界。
+- 完整测试：142 passed，1 个第三方 pkg_resources 弃用警告。
+- 静态检查：ruff check 全通过；mypy 对 98 个源文件零问题。
+- 环境备注：pytest 已成功汇总且退出码为 0，随后 Windows 原生 pyarrow/sklearn 依赖链打印一次 access violation 堆栈，未造成测试失败。

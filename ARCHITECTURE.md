@@ -63,7 +63,7 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 `shutdown()` 负责等待任务并关闭日志。LLM、RAG、Embedding、Reranker 和 STT 都保持惰性，
 由 worker 任务内首次加载。
 
-SQLite 连接与事务由 `SQLiteDatabase` 统一管理，`MigrationRunner` 独立维护版本 1–4 的仅向前
+SQLite 连接与事务由 `SQLiteDatabase` 统一管理，`MigrationRunner` 独立维护版本 1–5 的仅向前
 迁移。身份快照、后台任务、同步历史、备份记录和审计事件分别由独立 Repository adapter
 持久化；领域层不再包含 SQLite 实现。所有 adapter 由 `Container` 共享装配同一数据库资源。
 
@@ -102,16 +102,19 @@ data/retrieval/
 - 备份默认要求 `BACKUP_ENCRYPTION_KEY`，使用 Fernet 加密。
 - 备份包含 SQLite 一致性快照、Obsidian 资料、家庭资料 TOML 和数字遗产激活文件；可重建的模型与检索索引不纳入。
 - 恢复演练会解密、校验每个文件哈希、在隔离临时目录解包，并执行 SQLite integrity check。
-- 数字遗产激活支持 `owner_only`、`activation_file`、`activated` 三种规则。激活文件必须包含授权人、
+- 密钥轮换使用临时 BACKUP_PREVIOUS_ENCRYPTION_KEY 解密旧归档，以当前密钥重新加密；原文件不会被覆盖或删除。
+- scripts/offline_restore.py 可在没有项目运行环境、Streamlit 和 Qdrant 时恢复开放格式资产，操作规范见离线恢复手册。- 数字遗产激活支持 `owner_only`、`activation_file`、`activated` 三种规则。激活文件必须包含授权人、
   批准时间和证据引用。
 
 ### 后台任务
 
-Streamlit 的聊天、访谈提炼、同步、语音转写、RAG 回复、备份和恢复演练都提交给
-`BackgroundTaskRunner`。任务状态持久化到 SQLite；进程重启后未完成任务会明确标记失败。
+Streamlit 的聊天、访谈提炼、同步、语音转写、RAG 回复、备份、恢复演练和密钥轮换都以安全 JSON
+载荷写入 SQLite。BackgroundTaskRunner 只依赖任务 Repository 协议和 Container 注入的 handler
+注册表，不依赖具体业务用例；音频 bytes 使用显式 Base64 标记，不使用 pickle。
 
-当前 worker 是单进程线程池，适合个人单机阶段。未来接入 API、多设备或商业部署时，应以实现同一任务
-接口的持久队列 worker 替换它。
+应用启动时只把上次已经开始执行的 running 任务标记为失败，保留 queued 任务并按创建时间原子认领。
+单进程内仍由受控 ThreadPoolExecutor 执行，SQLite Broker/Worker 边界为后续独立守护进程保留，
+本阶段没有引入 Celery、Redis 或网络服务。
 
 ## 4. 运维命令
 
@@ -151,6 +154,9 @@ uv run reborn legacy-status
 - **安全性与人格对齐测试**：引入自动评估机制（Evaluate Runner），包含儿童安全回归测试、人格回归测试和提示词版本评估，确保大模型基座或提示词变更时，数字分身的价值观不发生偏移。
 
 ### Phase 4: 系统运维与高可用生产化（中/低优先级，高难度）
+
+- **已完成：SQLite 持久化队列底座**：全部生产后台任务具有可重放载荷，queued 任务可在重启后接管，running 任务不会被盲目重试。
+- **已完成：备份密钥轮换与离线恢复**：支持新旧密钥短期并存、原子发布轮换备份，并提供独立恢复脚本与人性授权手册。
 
 - **独立/持久化任务队列**：将进程内的 `BackgroundTaskRunner` 线程池升级为支持网络通信、可恢复的独立 Worker/分布式队列（如 Celery/Redis 或持久化队列数据库），以便部署于多设备或云端。
 - **数据治理与人工操作手册**：增加开放标准的导出格式、支持备份加密密钥轮换，并编写真正符合人性授权、用于极端灾备情况下的离线恢复操作手册。

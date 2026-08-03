@@ -46,6 +46,8 @@ def test_env_example_uses_defaults_and_hides_secrets():
     assert "FUNASR_MODEL_NAME=" not in content
     assert "LLM_API_KEY=\n" in content
     assert "BACKUP_ENCRYPTION_KEY=\n" in content
+    assert "BACKUP_PREVIOUS_ENCRYPTION_KEY=\n" in content
+    assert "TASK_POLL_INTERVAL_SECONDS=0.2" in content
     assert "BACKUP_REQUIRE_ENCRYPTION=true" in content
     assert "BASE_DIR=" not in content
 

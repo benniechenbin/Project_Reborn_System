@@ -44,7 +44,7 @@ class RebornApp:
             path.mkdir(parents=True, exist_ok=True)
 
         self.container.migration_runner.migrate()
-        abandoned_tasks = self.container.task_repository.mark_unfinished_tasks_failed()
+        interrupted_tasks = self.container.task_repository.recover_interrupted_tasks()
         self.container.retrieval_generations.initialize()
         self.container.task_runner.start()
         self._started = True
@@ -57,8 +57,8 @@ class RebornApp:
             self.settings.app_version,
             self.container.retrieval_generations.active_generation_id(),
         )
-        if abandoned_tasks:
-            logger.warning("Marked {} interrupted background tasks as failed", abandoned_tasks)
+        if interrupted_tasks:
+            logger.warning("Marked {} interrupted running tasks as failed", interrupted_tasks)
         return self
 
     def shutdown(self) -> None:

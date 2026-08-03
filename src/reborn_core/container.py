@@ -1,4 +1,6 @@
+from collections.abc import Callable
 from functools import cached_property
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from reborn_core.application.models import (
@@ -101,8 +103,23 @@ class Container:
 
         return BackgroundTaskRunner(
             repository=self.task_repository,
+            handlers=self.task_handlers,
             max_workers=self.settings.task_worker_threads,
+            poll_interval_seconds=self.settings.task_poll_interval_seconds,
         )
+
+    @cached_property
+    def task_handlers(self) -> dict[str, Callable[..., Any]]:
+        return {
+            "memory_sync": self.run_sync,
+            "creator_chat": self.generate_chat,
+            "interview_extraction": self.run_interview_task,
+            "voice_capture": self.process_voice_capture,
+            "avatar_response": self.generate_avatar_response,
+            "encrypted_backup": self.run_backup,
+            "recovery_drill": self.run_recovery_drill,
+            "backup_key_rotation": self.run_rotate_backup_key,
+        }
 
     @cached_property
     def llm_router(self):
@@ -287,6 +304,14 @@ class Container:
     ):
         return self.interview_service.process_interview(chat_history, mode, custom_title)
 
+    def run_interview_task(
+        self,
+        chat_history: list[ChatMessage],
+        mode: str,
+        custom_title: str | None = None,
+    ):
+        return self.run_interview(chat_history, InterviewMode(mode), custom_title)
+
     def process_voice_capture(self, audio_bytes: bytes):
         transcript = self.stt_engine.transcribe_audio_bytes(audio_bytes)
         if not transcript:
@@ -322,7 +347,8 @@ class Container:
     def run_backup(self):
         return self.backup_service.create_backup()
 
-    def run_recovery_drill(self, path: str):
-        from pathlib import Path
-
+    def run_recovery_drill(self, path: str | Path):
         return self.backup_service.run_recovery_drill(Path(path))
+
+    def run_rotate_backup_key(self, path: str | Path):
+        return self.backup_service.rotate_encryption_key(Path(path))

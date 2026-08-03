@@ -46,8 +46,8 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "check":
                 print("Project Reborn lifecycle check passed")
             elif args.command == "sync":
-                task_id = container.task_runner.submit("memory_sync", container.run_sync)
-                print(container.task_runner.result(task_id).as_dict())
+                task_id = container.task_runner.submit("memory_sync")
+                print(json.dumps(container.task_runner.result(task_id), ensure_ascii=False))
             elif args.command == "evaluate":
                 from reborn_core.infrastructure.evaluation import load_evaluation_suite
 
@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
                 return 0 if report.passed else 1
             elif args.command == "backup":
-                task_id = container.task_runner.submit("encrypted_backup", container.run_backup)
+                task_id = container.task_runner.submit("encrypted_backup")
                 print(container.task_runner.result(task_id))
             elif args.command == "verify-backup":
                 print(

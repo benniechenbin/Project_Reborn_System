@@ -32,10 +32,9 @@ def submit_task(
     container: Container,
     state_key: str,
     kind: str,
-    operation: Callable[..., Any],
     *args: Any,
 ) -> None:
-    st.session_state[state_key] = container.task_runner.submit(kind, operation, *args)
+    st.session_state[state_key] = container.task_runner.submit(kind, *args)
 
 
 @st.fragment(run_every="1s")
@@ -88,7 +87,7 @@ def render_dashboard(container: Container) -> None:
     active = container.retrieval_generations.active_generation_id()
     st.caption(f"当前检索代次：`{active or '尚未建立'}`")
     if st.button("提交全量同步", type="primary"):
-        submit_task(container, "sync_task", "memory_sync", container.run_sync)
+        submit_task(container, "sync_task", "memory_sync")
         st.rerun()
     result = task_result(container, "sync_task", "记忆同步")
     if result is not None:
@@ -171,9 +170,7 @@ def render_creator(container: Container) -> None:
             },
             *st.session_state.creator_chat,
         ]
-        submit_task(
-            container, "creator_chat_task", "creator_chat", container.generate_chat, messages
-        )
+        submit_task(container, "creator_chat_task", "creator_chat", messages)
         st.rerun()
 
     chat_response = task_result(container, "creator_chat_task", "采访回复")
@@ -192,7 +189,6 @@ def render_creator(container: Container) -> None:
                 container,
                 "interview_task",
                 "interview_extraction",
-                container.run_interview,
                 list(st.session_state.creator_chat),
                 mode,
                 title or None,
@@ -270,7 +266,6 @@ def render_voice(container: Container) -> None:
                 container,
                 "voice_task",
                 "voice_capture",
-                container.process_voice_capture,
                 voice_audio_bytes,
             )
         except Exception as exc:
@@ -297,7 +292,6 @@ def render_sandbox(container: Container) -> None:
             container,
             "avatar_task",
             "avatar_response",
-            container.generate_avatar_response,
             prompt,
             list(st.session_state.sandbox_chat[:-1]),
         )
@@ -324,7 +318,7 @@ def render_governance(container: Container, app: RebornApp) -> None:
         }
     )
     if st.button("提交加密备份"):
-        submit_task(container, "backup_task", "encrypted_backup", container.run_backup)
+        submit_task(container, "backup_task", "encrypted_backup")
         st.rerun()
     backup_result = task_result(container, "backup_task", "加密备份")
     if backup_result:
@@ -336,7 +330,6 @@ def render_governance(container: Container, app: RebornApp) -> None:
             container,
             "drill_task",
             "recovery_drill",
-            container.run_recovery_drill,
             backup_path,
         )
         st.rerun()
@@ -344,6 +337,37 @@ def render_governance(container: Container, app: RebornApp) -> None:
     if drill_result:
         st.success("恢复演练通过")
         st.json(drill_result)
+
+    st.divider()
+    st.subheader("备份密钥轮换")
+    st.caption("旧密钥仅从 BACKUP_PREVIOUS_ENCRYPTION_KEY 读取，不会写入任务数据库。")
+    st.write(
+        {
+            "new_key_configured": app.settings.backup_encryption_key is not None,
+            "previous_key_configured": app.settings.backup_previous_encryption_key is not None,
+        }
+    )
+    rotation_path = st.text_input(
+        "待轮换备份路径",
+        placeholder=str(app.settings.resolved_backup_dir / "reborn_*.zip.fernet"),
+    )
+    rotation_disabled = not (
+        rotation_path
+        and app.settings.backup_encryption_key
+        and app.settings.backup_previous_encryption_key
+    )
+    if st.button("提交密钥轮换", disabled=rotation_disabled):
+        submit_task(
+            container,
+            "rotation_task",
+            "backup_key_rotation",
+            rotation_path,
+        )
+        st.rerun()
+    rotation_result = task_result(container, "rotation_task", "密钥轮换")
+    if rotation_result:
+        st.success(f"轮换后的备份：{rotation_result}")
+        st.info("请完成独立恢复演练后，从环境配置中移除 BACKUP_PREVIOUS_ENCRYPTION_KEY。")
 
 
 def _initialize_session_state() -> None:

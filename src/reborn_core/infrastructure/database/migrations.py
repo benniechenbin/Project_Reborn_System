@@ -12,7 +12,7 @@ Migration = tuple[int, Callable[[sqlite3.Connection], None]]
 class MigrationRunner:
     """Applies the project's versioned, forward-only SQLite migrations."""
 
-    LATEST_VERSION = 4
+    LATEST_VERSION = 5
 
     def __init__(self, database: SQLiteDatabase) -> None:
         self.database = database
@@ -24,6 +24,7 @@ class MigrationRunner:
             (2, _migration_002_identity_snapshots),
             (3, _migration_003_background_tasks),
             (4, _migration_004_backup_and_audit),
+            (5, _migration_005_persistent_task_payloads),
         )
         with self.database.transaction() as conn:
             conn.execute(
@@ -137,5 +138,17 @@ def _migration_004_backup_and_audit(conn: sqlite3.Connection) -> None:
             outcome TEXT NOT NULL,
             details_json TEXT NOT NULL
         )
+        """
+    )
+
+
+def _migration_005_persistent_task_payloads(conn: sqlite3.Connection) -> None:
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(background_tasks)")}
+    if "payload_json" not in columns:
+        conn.execute("ALTER TABLE background_tasks ADD COLUMN payload_json TEXT")
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_background_tasks_queue
+        ON background_tasks(status, created_at, task_id)
         """
     )

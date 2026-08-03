@@ -195,6 +195,13 @@ uv run reborn evaluate --suite docs/eval/child-safety-persona.v1.json
 身份快照默认进入待审状态，不会自动成为当前人格。加密备份、恢复演练、身份审批与数字遗产状态可通过
 `uv run reborn --help` 查看对应命令。备份默认要求配置 `BACKUP_ENCRYPTION_KEY`。
 
+后台任务的种类和参数会先写入 SQLite；进程意外退出后，尚未开始的 queued 任务会由下一次启动接管，
+已经开始执行的 running 任务则会明确标记为失败，避免重复副作用。
+
+轮换备份密钥时，在 .env 中同时配置新的 BACKUP_ENCRYPTION_KEY 和临时的
+BACKUP_PREVIOUS_ENCRYPTION_KEY，然后在 Streamlit“治理”页面选择旧备份。系统会保留原文件，
+发布经新密钥加密且通过哈希与 SQLite 完整性检查的新文件。演练完成后应立即移除旧密钥配置。
+脱离 Project Reborn 的恢复步骤见 docs/ops/offline_recovery_manual.md。
 长期维护边界、数据不变量和分阶段演进计划见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 ### 📂 项目目录结构

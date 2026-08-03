@@ -27,3 +27,12 @@ def test_root_app_is_only_a_compatibility_launcher():
     assert isinstance(imported, ast.ImportFrom)
     assert imported.module == "reborn_core.interfaces.streamlit.app"
     assert [alias.name for alias in imported.names] == ["main"]
+
+
+def test_streamlit_task_submissions_do_not_persist_bound_methods():
+    source = Path(streamlit_app.__file__).read_text(encoding="utf-8")
+
+    assert "container.run_interview," not in source
+    assert "container.process_voice_capture," not in source
+    assert "container.generate_avatar_response," not in source
+    assert "container.run_recovery_drill," not in source

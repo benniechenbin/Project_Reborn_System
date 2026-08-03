@@ -80,6 +80,80 @@ class BackupService:
         )
         return destination
 
+    def rotate_encryption_key(
+        self,
+        path: Path,
+        context: AccessContext | None = None,
+    ) -> Path:
+        """Re-encrypt a verified historical backup without modifying its source file."""
+        context = context or AccessContext()
+        self.access_policy.require(AccessAction.RESTORE, str(path), context)
+        self.access_policy.require(AccessAction.BACKUP, "digital-estate", context)
+        old_cipher = self._previous_encryption_cipher()
+        new_cipher = self._encryption_cipher(required=True)
+        if old_cipher is None or new_cipher is None:
+            raise ConfigurationError("备份密钥轮换需要同时配置新旧 Fernet 密钥。")
+
+        current_secret = self.settings.backup_encryption_key
+        previous_secret = self.settings.backup_previous_encryption_key
+        if current_secret is not None and previous_secret is not None:
+            current_value = (
+                current_secret.get_secret_value()
+                if hasattr(current_secret, "get_secret_value")
+                else str(current_secret)
+            )
+            previous_value = (
+                previous_secret.get_secret_value()
+                if hasattr(previous_secret, "get_secret_value")
+                else str(previous_secret)
+            )
+            if current_value == previous_value:
+                raise ConfigurationError("新旧备份密钥不能相同。")
+
+        source_digest = _sha256_file(path)
+        source_result = self._inspect_with_cipher(path, old_cipher, check_sqlite=True)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        name = path.name
+        base_name = name[: -len(".zip.fernet")] if name.endswith(".zip.fernet") else path.stem
+        destination = path.with_name(
+            f"{base_name}.rotated-{stamp}-{uuid.uuid4().hex[:8]}.zip.fernet"
+        )
+        temp_destination = destination.with_name(f".{destination.name}.tmp")
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="reborn-key-rotation-") as temp:
+                temp_root = Path(temp)
+                plaintext_zip = temp_root / "source.zip"
+                _decrypt_stream(path, plaintext_zip, old_cipher)
+                _encrypt_stream(plaintext_zip, temp_destination, new_cipher)
+                target_result = self._inspect_with_cipher(
+                    temp_destination,
+                    new_cipher,
+                    check_sqlite=True,
+                )
+            os.replace(temp_destination, destination)
+        finally:
+            if temp_destination.exists():
+                temp_destination.unlink()
+
+        target_digest = _sha256_file(destination)
+        detail = {
+            "source_path": str(path),
+            "source_sha256": source_digest,
+            "target_sha256": target_digest,
+            "backup_id": source_result["backup_id"],
+            "sqlite_integrity": target_result["sqlite_integrity"],
+        }
+        self.repository.save_backup_record(
+            f"rotation_{uuid.uuid4().hex[:12]}",
+            str(destination),
+            target_digest,
+            True,
+            "key_rotated",
+            detail=json.dumps(detail, ensure_ascii=False),
+        )
+        return destination
+
     def verify_backup(self, path: Path, context: AccessContext | None = None) -> dict[str, object]:
         context = context or AccessContext()
         self.access_policy.require(AccessAction.RESTORE, str(path), context)
@@ -200,6 +274,76 @@ class BackupService:
         finally:
             target.close()
             source.close()
+
+    def _inspect_with_cipher(
+        self,
+        path: Path,
+        cipher: Fernet,
+        check_sqlite: bool = False,
+    ) -> dict[str, object]:
+        with tempfile.TemporaryDirectory(prefix="reborn-inspect-") as temp:
+            root = Path(temp)
+            temp_zip = root / "reborn.zip"
+            _decrypt_stream(path, temp_zip, cipher)
+            with zipfile.ZipFile(temp_zip, "r") as archive:
+                manifest = json.loads(archive.read("manifest.json"))
+                for item in manifest["files"]:
+                    with archive.open(item["archive_path"], "r") as member:
+                        digest, size = _sha256_stream(member)
+                    if digest != item["sha256"]:
+                        raise ValueError(f"Backup checksum mismatch: {item['archive_path']}")
+                    if size != item["size"]:
+                        raise ValueError(f"Backup size mismatch: {item['archive_path']}")
+                result: dict[str, object] = {
+                    "backup_id": manifest["backup_id"],
+                    "verified": True,
+                    "file_count": len(manifest["files"]),
+                    "encrypted": True,
+                    "profile_included": any(
+                        item["archive_path"] == "profile/project_profile.toml"
+                        for item in manifest["files"]
+                    ),
+                }
+                if check_sqlite:
+                    for archive_member in archive.infolist():
+                        destination = (root / archive_member.filename).resolve()
+                        if (
+                            destination != root.resolve()
+                            and root.resolve() not in destination.parents
+                        ):
+                            raise ValueError(
+                                f"Unsafe backup member path: {archive_member.filename}"
+                            )
+                        archive.extract(archive_member, root)
+            if check_sqlite:
+                restored_db = root / "sqlite" / "reborn.db"
+                if not restored_db.is_file():
+                    raise ValueError(
+                        "Backup archive is missing the database file 'sqlite/reborn.db'"
+                    )
+                conn = sqlite3.connect(restored_db)
+                try:
+                    integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+                finally:
+                    conn.close()
+                if integrity != "ok":
+                    raise ValueError(f"Restored SQLite integrity check failed: {integrity}")
+                result["sqlite_integrity"] = integrity
+        return result
+
+    def _previous_encryption_cipher(self) -> Fernet | None:
+        secret = self.settings.backup_previous_encryption_key
+        if secret is None:
+            raise ConfigurationError(
+                "缺少 BACKUP_PREVIOUS_ENCRYPTION_KEY。请仅在密钥轮换窗口中配置旧密钥。"
+            )
+        value = secret.get_secret_value() if hasattr(secret, "get_secret_value") else str(secret)
+        try:
+            return Fernet(value.encode("ascii"))
+        except (UnicodeEncodeError, ValueError):
+            raise ConfigurationError(
+                "BACKUP_PREVIOUS_ENCRYPTION_KEY 格式无效；必须是完整的 44 个字符。"
+            ) from None
 
     def _encryption_cipher(self, required: bool = False) -> Fernet | None:
         secret = self.settings.backup_encryption_key

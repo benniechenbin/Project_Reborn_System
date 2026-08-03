@@ -48,7 +48,7 @@ def test_migrations_create_current_schema(database):
         "backup_records",
         "audit_events",
     } <= tables
-    assert versions == [1, 2, 3, 4]
+    assert versions == [1, 2, 3, 4, 5]
     assert integrity == "ok"
 
 
@@ -126,7 +126,7 @@ def test_migrations_upgrade_partial_database_without_losing_data(tmp_path):
 
     assert record["generation_id"] == "generation-1"
     assert record["word_count"] == 30
-    assert versions == [1, 2, 3, 4]
+    assert versions == [1, 2, 3, 4, 5]
 
 
 def test_database_transaction_commit_and_rollback(database):
@@ -201,26 +201,40 @@ def test_identity_snapshot_repository_lifecycle(database):
     assert active.snapshot_id == "snap_1"
 
 
-def test_task_repository_marks_unfinished_tasks_failed(database):
+def test_task_repository_recovers_only_running_tasks(database):
     repository = SQLiteTaskRepository(database)
     now = datetime.now(UTC).isoformat()
-    repository.create_task(
+    repository.enqueue_task(
         TaskRecord(
-            task_id="task_1",
-            kind="sync",
+            task_id="queued_task",
+            kind="queued",
             status=TaskStatus.QUEUED,
             created_at=now,
             updated_at=now,
+            payload_json='{"schema_version":1,"args":[],"kwargs":{}}',
         )
     )
+    repository.enqueue_task(
+        TaskRecord(
+            task_id="running_task",
+            kind="running",
+            status=TaskStatus.QUEUED,
+            created_at=now,
+            updated_at=now,
+            payload_json='{"schema_version":1,"args":[],"kwargs":{}}',
+        )
+    )
+    claimed = repository.claim_next_queued_task()
+    assert claimed is not None
+    assert claimed.task_id == "queued_task"
+    assert repository.recover_interrupted_tasks() == 1
 
-    repository.update_task("task_1", TaskStatus.RUNNING)
-    assert repository.has_active_task_of_kind("sync")
-    assert repository.mark_unfinished_tasks_failed() == 1
-    retrieved = repository.get_task("task_1")
-
-    assert retrieved is not None
-    assert retrieved.status is TaskStatus.FAILED
+    interrupted = repository.get_task("queued_task")
+    queued = repository.get_task("running_task")
+    assert interrupted is not None
+    assert interrupted.status is TaskStatus.FAILED
+    assert queued is not None
+    assert queued.status is TaskStatus.QUEUED
 
 
 def test_backup_and_audit_repositories_are_isolated(database):

@@ -85,6 +85,12 @@ class Settings(BaseSettings):
         description="Project Reborn 家庭资料 TOML 文件路径",
     )
     task_worker_threads: int = Field(default=2, ge=1, le=16, description="后台任务工作线程数")
+    task_poll_interval_seconds: float = Field(
+        default=0.2,
+        gt=0,
+        le=60,
+        description="SQLite 后台任务队列轮询间隔（秒）",
+    )
     retrieval_generation_retention: int = Field(
         default=3,
         ge=2,
@@ -95,6 +101,10 @@ class Settings(BaseSettings):
     backup_encryption_key: SecretStr | None = Field(
         default=None,
         description="用于加密备份归档的 Fernet 密钥",
+    )
+    backup_previous_encryption_key: SecretStr | None = Field(
+        default=None,
+        description="仅在备份密钥轮换期间使用的上一把 Fernet 密钥",
     )
     backup_require_encryption: bool = Field(
         default=True,
