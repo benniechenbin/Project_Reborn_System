@@ -22,7 +22,7 @@ dependencies = [
     "modelscope>=1.38.1",
     "numpy<2.0.0",
     "openai>=2.48.0",
-    "pandas>=2.0.0",
+    "pandas>=3.0.5",
     "pydantic-settings>=2.2.1",
     "pyfiglet>=0.8.1",
     "PyYAML>=6.0",
