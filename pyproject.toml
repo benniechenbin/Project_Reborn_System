@@ -9,9 +9,9 @@ description = "Project Reborn - Digital Immortality System"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "llvmlite<=0.45.1",
+    "llvmlite<=0.48.0",
     "audio-recorder-streamlit>=0.0.10",
-    "cryptography>=42.0.0",
+    "cryptography>=49.0.0",
     "funasr>=1.0.0",
     "jieba>=0.42.1",
     "langchain-community==0.4.1",
@@ -19,11 +19,11 @@ dependencies = [
     "langchain-qdrant==1.1.0",
     "langchain-text-splitters==1.1.2",
     "loguru>=0.7.2",
-    "modelscope>=1.38.1",
+    "modelscope>=1.39.0",
     "numpy<2.0.0",
     "openai>=2.48.0",
-    "pandas>=2.0.0",
-    "pydantic-settings>=2.2.1",
+    "pandas>=3.0.5",
+    "pydantic-settings>=2.14.2",
     "pyfiglet>=0.8.1",
     "PyYAML>=6.0",
     "qdrant-client>=1.8.0",
