@@ -17,6 +17,7 @@ from reborn_core.application.services import (
     IdentityGovernanceService,
     InterviewService,
     SyncService,
+    VoiceArchiveService,
 )
 from reborn_core.config import Settings
 from reborn_core.domains import FamilyProfile
@@ -28,9 +29,12 @@ if TYPE_CHECKING:
         SQLiteBackupRecordRepository,
         SQLiteDatabase,
         SQLiteIdentitySnapshotRepository,
+        SQLiteSourceArtifactRepository,
         SQLiteSyncHistoryRepository,
         SQLiteTaskRepository,
     )
+    from reborn_core.infrastructure.memory import LocalAudioArchiveStorage
+    from reborn_core.runtime import BackgroundTaskWorker, TaskQueue
 
 
 class Container:
@@ -56,6 +60,26 @@ class Container:
         from reborn_core.infrastructure.database import SQLiteIdentitySnapshotRepository
 
         return SQLiteIdentitySnapshotRepository(self.database)
+
+    @cached_property
+    def source_artifact_repository(self) -> "SQLiteSourceArtifactRepository":
+        from reborn_core.infrastructure.database import SQLiteSourceArtifactRepository
+
+        return SQLiteSourceArtifactRepository(self.database)
+
+    @cached_property
+    def audio_archive_storage(self) -> "LocalAudioArchiveStorage":
+        from reborn_core.infrastructure.memory import LocalAudioArchiveStorage
+
+        audio_root = self.settings.active_audio_path or (self.settings.base_dir / "data" / "audio")
+        return LocalAudioArchiveStorage(audio_root)
+
+    @cached_property
+    def voice_archive_service(self) -> VoiceArchiveService:
+        return VoiceArchiveService(
+            storage=self.audio_archive_storage,
+            repository=self.source_artifact_repository,
+        )
 
     @cached_property
     def task_repository(self) -> "SQLiteTaskRepository":
@@ -98,10 +122,16 @@ class Container:
         return LegacyActivationPolicy(self.settings)
 
     @cached_property
-    def task_runner(self):
-        from reborn_core.runtime import BackgroundTaskRunner
+    def task_queue(self) -> "TaskQueue":
+        from reborn_core.runtime import TaskQueue
 
-        return BackgroundTaskRunner(
+        return TaskQueue(repository=self.task_repository)
+
+    @cached_property
+    def task_worker(self) -> "BackgroundTaskWorker":
+        from reborn_core.runtime import BackgroundTaskWorker
+
+        return BackgroundTaskWorker(
             repository=self.task_repository,
             handlers=self.task_handlers,
             max_workers=self.settings.task_worker_threads,

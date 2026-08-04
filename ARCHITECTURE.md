@@ -85,7 +85,7 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 
 #### P1-B 后段 / P1-C：核心业务深度演进（进行中，高优先级）
 
-- **数据源追踪建模 (SourceArtifact)**：在数据库中为原始物料（音频、访谈、外源知识）增加独立记录，支持内容哈希校验、授权范围和敏感级别，作为合规与审计依据。
+- **已完成：SourceArtifact 与声音档案**：SQLite v6 记录音频资产哈希、授权目标和高敏级别；原生 Streamlit 录音以原子文件写入纳入审计。
 - **跨进程锁与租约**：在构建和切换检索代次时，引入基于文件系统或数据库的跨进程锁（Lock）与租约（Lease）机制，防止 Streamlit、CLI 和未来独立守护进程并发同步时发生冲突。
 - **待后续：新增稳定 API 接口层**：在存在明确客户端需求后再评估 API 技术选型，不在当前重构中引入 Web 框架。
 - **拆分夜间反思独立用例**：将夜间反思从 `IdentityGovernanceService` 中拆出，封装为独立的后台作业。分析产生的反思源关联对应的 `SourceArtifact`，且只有具备稳定价值观的快照候选才允许进入人机审批流程。
@@ -93,7 +93,7 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 
 #### P1-D：系统生产化（中低优先级）
 
-- **独立/持久化任务队列**：将进程内的 `BackgroundTaskRunner` 线程池升级为支持网络通信、可恢复的独立 Worker/分布式队列（如 Celery/Redis 或持久化队列数据库），以便部署于多设备或云端。
+- **已完成：独立 SQLite Worker**：`TaskQueue` 只负责入队和查状态，`uv run reborn worker` 独占轮询与受控线程池；queued 可接管，running 失败后人工重试。
 - **数据治理与人工操作手册**：增加开放标准的导出格式、支持备份加密密钥轮换，并编写真正符合人性授权、用于极端灾备情况下的离线恢复操作手册。
 
 ---
@@ -124,13 +124,12 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 
 ### 后台任务
 
-Streamlit 的聊天、访谈提炼、同步、语音转写、RAG 回复、备份、恢复演练和密钥轮换都以安全 JSON
-载荷写入 SQLite。BackgroundTaskRunner 只依赖任务 Repository 协议和 Container 注入的 handler
-注册表，不依赖具体业务用例；音频 bytes 使用显式 Base64 标记，不使用 pickle。
-
-应用启动时只把上次已经开始执行的 running 任务标记为失败，保留 queued 任务并按创建时间原子认领。
-单进程内仍由受控 ThreadPoolExecutor 执行，SQLite Broker/Worker 边界为后续独立守护进程保留，
-本阶段没有引入 Celery、Redis 或网络服务。
+Streamlit 的聊天、访谈提炼、同步、语音转写、RAG 回复、备份、恢复演练和密钥轮换通过
+`TaskQueue` 将安全 JSON 载荷写入 SQLite；声音档案则直接调用归档用例，长音频不会进入任务载荷。
+`uv run reborn worker` 是唯一持有 `BackgroundTaskWorker` 和受控 `ThreadPoolExecutor` 的进程，
+它按创建时间原子认领 queued 任务并通过 Container 注入的 handler 注册表执行。
+Worker 启动时将上次已经开始的 running 任务标记为失败，避免非幂等副作用被盲目重试；
+queued 任务保持可接管。本地部署继续使用 SQLite，不引入 Celery、Redis 或网络服务。
 
 ## 4. 运维命令
 
@@ -161,7 +160,7 @@ uv run reborn legacy-status
 
 ### Phase 2: 数据安全与数据模型演进（高优先级，中难度）
 
-- **数据源追踪建模 (SourceArtifact)**：在数据库中为原始物料（音频、访谈、外源知识）增加独立记录，支持内容哈希校验、授权范围和敏感级别，作为合规与审计依据。
+- **已完成：SourceArtifact 与声音档案**：SQLite v6 记录音频资产哈希、授权目标和高敏级别；原生 Streamlit 录音以原子文件写入纳入审计。
 - **增加跨进程锁与租约**：在构建和切换检索代次时，引入基于文件系统或数据库的跨进程锁（Lock）与租约（Lease）机制，防止 Streamlit、CLI 和未来独立守护进程并发同步时发生冲突。
 
 ### Phase 3: 核心业务深度演进（中优先级，中/高难度）
@@ -174,5 +173,5 @@ uv run reborn legacy-status
 - **已完成：SQLite 持久化队列底座**：全部生产后台任务具有可重放载荷，queued 任务可在重启后接管，running 任务不会被盲目重试。
 - **已完成：备份密钥轮换与离线恢复**：支持新旧密钥短期并存、原子发布轮换备份，并提供独立恢复脚本与人性授权手册。
 
-- **独立/持久化任务队列**：将进程内的 `BackgroundTaskRunner` 线程池升级为支持网络通信、可恢复的独立 Worker/分布式队列（如 Celery/Redis 或持久化队列数据库），以便部署于多设备或云端。
+- **已完成：独立 SQLite Worker**：`TaskQueue` 只负责入队和查状态，`uv run reborn worker` 独占轮询与受控线程池；queued 可接管，running 失败后人工重试。
 - **数据治理与人工操作手册**：增加开放标准的导出格式、支持备份加密密钥轮换，并编写真正符合人性授权、用于极端灾备情况下的离线恢复操作手册。

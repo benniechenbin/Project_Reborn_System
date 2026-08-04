@@ -1,3 +1,8 @@
-from .tasks import BackgroundTaskRunner, TaskRecord, TaskStatus
+from .tasks import BackgroundTaskWorker, TaskQueue, TaskRecord, TaskStatus
 
-__all__ = ["BackgroundTaskRunner", "TaskRecord", "TaskStatus"]
+__all__ = [
+    "BackgroundTaskWorker",
+    "TaskQueue",
+    "TaskRecord",
+    "TaskStatus",
+]

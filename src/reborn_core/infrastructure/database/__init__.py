@@ -4,6 +4,7 @@ from .repositories import (
     SQLiteAuditRepository,
     SQLiteBackupRecordRepository,
     SQLiteIdentitySnapshotRepository,
+    SQLiteSourceArtifactRepository,
     SQLiteSyncHistoryRepository,
     SQLiteTaskRepository,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "SQLiteBackupRecordRepository",
     "SQLiteDatabase",
     "SQLiteIdentitySnapshotRepository",
+    "SQLiteSourceArtifactRepository",
     "SQLiteSyncHistoryRepository",
     "SQLiteTaskRepository",
 ]

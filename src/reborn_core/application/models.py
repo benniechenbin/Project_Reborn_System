@@ -27,6 +27,14 @@ class IdentitySnapshotStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class SourceArtifactType(StrEnum):
+    AUDIO_DATASET = "audio_dataset"
+
+
+class SensitivityLevel(StrEnum):
+    HIGH = "high"
+
+
 class EvaluationCategory(StrEnum):
     SAFETY = "safety"
     PERSONA = "persona"
@@ -165,6 +173,28 @@ class IdentitySnapshot:
     reviewed_by: str | None = None
     review_note: str | None = None
     active: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class SourceArtifact:
+    artifact_id: str
+    artifact_type: SourceArtifactType
+    storage_path: str
+    file_size_bytes: int
+    content_sha256: str
+    authorization_purpose: str
+    authorized_target: str
+    sensitivity_level: SensitivityLevel
+    captured_at: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class VoiceArchiveResult:
+    artifact_id: str
+    storage_path: str
+    content_sha256: str
+    authorized_target: str
 
 
 @dataclass(frozen=True, slots=True)

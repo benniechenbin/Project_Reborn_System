@@ -14,6 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="reborn")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("check")
+    sub.add_parser("worker")
     sub.add_parser("sync")
     evaluate = sub.add_parser("evaluate")
     evaluate.add_argument("--suite", type=Path)
@@ -45,9 +46,19 @@ def main(argv: list[str] | None = None) -> int:
             container = app.container
             if args.command == "check":
                 print("Project Reborn lifecycle check passed")
+            elif args.command == "worker":
+                interrupted = container.task_repository.recover_interrupted_tasks()
+                if interrupted:
+                    print(
+                        f"已将 {interrupted} 个中断的 running 任务标记为失败",
+                        file=sys.stderr,
+                    )
+                try:
+                    container.task_worker.run_forever()
+                except KeyboardInterrupt:
+                    print("Project Reborn worker stopped")
             elif args.command == "sync":
-                task_id = container.task_runner.submit("memory_sync")
-                print(json.dumps(container.task_runner.result(task_id), ensure_ascii=False))
+                print(json.dumps(container.run_sync().as_dict(), ensure_ascii=False))
             elif args.command == "evaluate":
                 from reborn_core.infrastructure.evaluation import load_evaluation_suite
 
@@ -58,8 +69,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
                 return 0 if report.passed else 1
             elif args.command == "backup":
-                task_id = container.task_runner.submit("encrypted_backup")
-                print(container.task_runner.result(task_id))
+                print(container.run_backup())
             elif args.command == "verify-backup":
                 print(
                     json.dumps(

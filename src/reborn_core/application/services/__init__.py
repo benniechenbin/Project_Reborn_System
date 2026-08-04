@@ -3,6 +3,7 @@ from reborn_core.application.services.evaluate import EvaluateRunner
 from reborn_core.application.services.identity import IdentityGovernanceService
 from reborn_core.application.services.interview import InterviewService
 from reborn_core.application.services.sync import SyncService
+from reborn_core.application.services.voice_archive import VoiceArchiveService
 
 __all__ = [
     "AvatarService",
@@ -10,4 +11,5 @@ __all__ = [
     "IdentityGovernanceService",
     "InterviewService",
     "SyncService",
+    "VoiceArchiveService",
 ]

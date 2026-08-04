@@ -16,7 +16,7 @@ from reborn_core.infrastructure.database import (
     SQLiteDatabase,
     SQLiteTaskRepository,
 )
-from reborn_core.runtime import BackgroundTaskRunner, TaskRecord, TaskStatus
+from reborn_core.runtime import BackgroundTaskWorker, TaskQueue, TaskRecord, TaskStatus
 from reborn_core.security import LegacyActivationPolicy, LocalOwnerAccessPolicy
 
 
@@ -26,15 +26,39 @@ def migrated_database(settings):
     return database
 
 
+class RunningWorker:
+    def __init__(self, queue, worker):
+        self.queue = queue
+        self.worker = worker
+
+    @property
+    def _futures(self):
+        return self.worker._futures
+
+    def submit(self, kind, *args, **kwargs):
+        return self.queue.submit(kind, *args, **kwargs)
+
+    def result(self, task_id):
+        for _ in range(500):
+            task = self.queue.get_task(task_id)
+            if task is not None and task.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED}:
+                return self.queue.result(task_id)
+            time.sleep(0.01)
+        raise TimeoutError(f"Task did not complete: {task_id}")
+
+    def shutdown(self):
+        self.worker.shutdown()
+
+
 def started_runner(repository, handlers, max_workers=1):
-    runner = BackgroundTaskRunner(
+    worker = BackgroundTaskWorker(
         repository,
         handlers=handlers,
         max_workers=max_workers,
         poll_interval_seconds=0.01,
     )
-    runner.start()
-    return runner
+    worker.start()
+    return RunningWorker(TaskQueue(repository), worker)
 
 
 def test_background_task_status_is_persisted(test_settings):
@@ -105,9 +129,44 @@ def test_background_task_runner_prevents_duplicates(test_settings):
     runner.shutdown()
 
 
+def test_background_task_queue_allows_ten_parallel_submissions(test_settings):
+    repository = SQLiteTaskRepository(migrated_database(test_settings))
+    runner = started_runner(
+        repository,
+        {"parallel": lambda value: value * 2},
+        max_workers=4,
+    )
+
+    task_ids = [runner.submit("parallel", value, allow_parallel=True) for value in range(10)]
+
+    assert [runner.result(task_id) for task_id in task_ids] == [value * 2 for value in range(10)]
+    runner.shutdown()
+
+
+def test_recovery_marks_interrupted_running_tasks_failed(test_settings):
+    repository = SQLiteTaskRepository(migrated_database(test_settings))
+    now = datetime.now(UTC).isoformat()
+    repository.enqueue_task(
+        TaskRecord(
+            task_id="interrupted",
+            kind="slow",
+            status=TaskStatus.RUNNING,
+            created_at=now,
+            updated_at=now,
+            payload_json="{}",
+        )
+    )
+
+    assert repository.recover_interrupted_tasks() == 1
+    recovered = repository.get_task("interrupted")
+    assert recovered is not None
+    assert recovered.status is TaskStatus.FAILED
+    assert "Process restarted" in (recovered.error or "")
+
+
 def test_new_runner_replays_historical_queued_task(test_settings):
     repository = SQLiteTaskRepository(migrated_database(test_settings))
-    producer = BackgroundTaskRunner(repository, handlers={"historical": lambda value: value * 2})
+    producer = TaskQueue(repository)
     task_id = producer.submit("historical", 21)
 
     queued = repository.get_task(task_id)
@@ -130,7 +189,7 @@ def test_two_runners_claim_a_queued_task_once(test_settings):
             executions += 1
         return "done"
 
-    producer = BackgroundTaskRunner(repository)
+    producer = TaskQueue(repository)
     task_id = producer.submit("once")
     first = started_runner(repository, {"once": execute_once})
     second = started_runner(repository, {"once": execute_once})

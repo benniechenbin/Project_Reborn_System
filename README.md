@@ -68,14 +68,21 @@ cp docs/examples/project_profile.toml data/project_profile.toml
 
 #### 4. Run the Engine
 
-Launch the Central Console via Streamlit:
+Run the standalone SQLite worker in the first terminal:
+
+```bash
+uv run reborn worker
+```
+
+Launch the Central Console in a second terminal:
 
 ```bash
 uv run --extra ui --extra llm --extra rag --extra voice streamlit run app.py
 ```
 
 The root `app.py` is a compatibility launcher. The Streamlit implementation lives in
-`src/reborn_core/interfaces/streamlit/app.py` and starts resources through the shared lifecycle.
+`src/reborn_core/interfaces/streamlit/app.py`; it only enqueues background work, while the
+standalone worker owns polling and the controlled thread pool.
 
 ---
 
@@ -145,14 +152,21 @@ _(注意：请确保将 `.env` 及 `data/` 目录加入 `.gitignore` 以防隐�
 
 #### 4. 启动中控台
 
-通过 Streamlit 启动创造者交互面板：
+先在第一个终端启动独立 SQLite Worker：
+
+```bash
+uv run reborn worker
+```
+
+再在第二个终端启动 Streamlit 创造者交互面板：
 
 ```bash
 uv run --extra ui --extra llm --extra rag --extra voice streamlit run app.py
 ```
 
 根目录的 `app.py` 仅作为兼容启动器；实际页面代码位于
-`src/reborn_core/interfaces/streamlit/app.py`，并统一通过项目生命周期启动和释放资源。
+`src/reborn_core/interfaces/streamlit/app.py`。Streamlit 只负责提交后台任务，SQLite 轮询和
+受控线程池均由独立 Worker 进程持有。
 
 使用 Conda 时，必须先进入已经安装本项目的环境，并通过当前 Python 启动 Streamlit：
 

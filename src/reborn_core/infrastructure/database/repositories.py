@@ -8,6 +8,9 @@ from reborn_core.application.models import (
     IdentitySnapshotStatus,
     ModelMetadata,
     PromptMetadata,
+    SensitivityLevel,
+    SourceArtifact,
+    SourceArtifactType,
     SyncHistoryEntry,
 )
 from reborn_core.runtime import TaskRecord, TaskStatus
@@ -171,24 +174,87 @@ class SQLiteIdentitySnapshotRepository:
         return reviewed
 
 
+class SQLiteSourceArtifactRepository:
+    """Persists auditable source artifacts in SQLite."""
+
+    def __init__(self, database: SQLiteDatabase) -> None:
+        self.database = database
+
+    def create_source_artifact(self, artifact: SourceArtifact) -> None:
+        with self.database.transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO source_artifacts (
+                    artifact_id, artifact_type, storage_path, file_size_bytes,
+                    content_sha256, authorization_purpose, authorized_target,
+                    sensitivity_level, captured_at, metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    artifact.artifact_id,
+                    artifact.artifact_type.value,
+                    artifact.storage_path,
+                    artifact.file_size_bytes,
+                    artifact.content_sha256,
+                    artifact.authorization_purpose,
+                    artifact.authorized_target,
+                    artifact.sensitivity_level.value,
+                    artifact.captured_at,
+                    json.dumps(artifact.metadata, ensure_ascii=False, separators=(",", ":")),
+                ),
+            )
+
+    def get_source_artifact(self, artifact_id: str) -> SourceArtifact | None:
+        with self.database.get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM source_artifacts WHERE artifact_id = ?",
+                (artifact_id,),
+            ).fetchone()
+        return _source_artifact_from_row(row) if row is not None else None
+
+    def list_source_artifacts(
+        self,
+        artifact_type: SourceArtifactType | None = None,
+        limit: int = 20,
+    ) -> list[SourceArtifact]:
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+        query = "SELECT * FROM source_artifacts"
+        params: list[Any] = []
+        if artifact_type is not None:
+            query += " WHERE artifact_type = ?"
+            params.append(artifact_type.value)
+        query += " ORDER BY captured_at DESC, artifact_id DESC LIMIT ?"
+        params.append(limit)
+        with self.database.get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [_source_artifact_from_row(row) for row in rows]
+
+
 class SQLiteTaskRepository:
     """Persists and atomically dispatches background tasks in SQLite."""
 
     def __init__(self, database: SQLiteDatabase) -> None:
         self.database = database
 
-    def enqueue_task(self, task: TaskRecord) -> None:
+    def enqueue_task(
+        self,
+        task: TaskRecord,
+        *,
+        allow_parallel: bool = False,
+    ) -> None:
         with self.database.transaction() as conn:
-            active = conn.execute(
-                """
-                SELECT task_id FROM background_tasks
-                WHERE kind = ? AND status IN (?, ?)
-                LIMIT 1
-                """,
-                (task.kind, TaskStatus.QUEUED.value, TaskStatus.RUNNING.value),
-            ).fetchone()
-            if active is not None:
-                raise ValueError(f"A background task of kind '{task.kind}' is already running")
+            if not allow_parallel:
+                active = conn.execute(
+                    """
+                    SELECT task_id FROM background_tasks
+                    WHERE kind = ? AND status IN (?, ?)
+                    LIMIT 1
+                    """,
+                    (task.kind, TaskStatus.QUEUED.value, TaskStatus.RUNNING.value),
+                ).fetchone()
+                if active is not None:
+                    raise ValueError(f"A background task of kind '{task.kind}' is already running")
             conn.execute(
                 """
                 INSERT INTO background_tasks (
@@ -406,4 +472,22 @@ def _identity_from_row(row: sqlite3.Row) -> IdentitySnapshot:
         reviewed_by=row["reviewed_by"],
         review_note=row["review_note"],
         active=bool(row["active"]),
+    )
+
+
+def _source_artifact_from_row(row: sqlite3.Row) -> SourceArtifact:
+    metadata = json.loads(row["metadata_json"])
+    if not isinstance(metadata, dict):
+        raise ValueError("Source artifact metadata must be a JSON object")
+    return SourceArtifact(
+        artifact_id=str(row["artifact_id"]),
+        artifact_type=SourceArtifactType(row["artifact_type"]),
+        storage_path=str(row["storage_path"]),
+        file_size_bytes=int(row["file_size_bytes"]),
+        content_sha256=str(row["content_sha256"]),
+        authorization_purpose=str(row["authorization_purpose"]),
+        authorized_target=str(row["authorized_target"]),
+        sensitivity_level=SensitivityLevel(row["sensitivity_level"]),
+        captured_at=str(row["captured_at"]),
+        metadata=metadata,
     )

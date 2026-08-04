@@ -47,8 +47,9 @@ def test_migrations_create_current_schema(database):
         "background_tasks",
         "backup_records",
         "audit_events",
+        "source_artifacts",
     } <= tables
-    assert versions == [1, 2, 3, 4, 5]
+    assert versions == [1, 2, 3, 4, 5, 6]
     assert integrity == "ok"
 
 
@@ -126,7 +127,7 @@ def test_migrations_upgrade_partial_database_without_losing_data(tmp_path):
 
     assert record["generation_id"] == "generation-1"
     assert record["word_count"] == 30
-    assert versions == [1, 2, 3, 4, 5]
+    assert versions == [1, 2, 3, 4, 5, 6]
 
 
 def test_database_transaction_commit_and_rollback(database):

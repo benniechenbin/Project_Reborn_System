@@ -1,7 +1,6 @@
 import base64
 import json
 import threading
-import time
 import uuid
 from collections.abc import Callable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -38,7 +37,7 @@ class TaskRecord:
 
 
 class TaskRepository(Protocol):
-    def enqueue_task(self, task: TaskRecord) -> None: ...
+    def enqueue_task(self, task: TaskRecord, *, allow_parallel: bool = False) -> None: ...
 
     def claim_next_queued_task(self) -> TaskRecord | None: ...
 
@@ -60,7 +59,55 @@ class TaskRepository(Protocol):
 TaskHandler = Callable[..., Any]
 
 
-class BackgroundTaskRunner:
+class TaskQueue:
+    """SQLite-backed task producer and status reader with no execution resources."""
+
+    def __init__(self, repository: TaskRepository) -> None:
+        self.repository = repository
+
+    def submit(
+        self,
+        kind: str,
+        *args: Any,
+        allow_parallel: bool = False,
+        **kwargs: Any,
+    ) -> str:
+        task_id = uuid.uuid4().hex
+        now = datetime.now(UTC).isoformat()
+        self.repository.enqueue_task(
+            TaskRecord(
+                task_id=task_id,
+                kind=kind,
+                status=TaskStatus.QUEUED,
+                created_at=now,
+                updated_at=now,
+                payload_json=_encode_payload(args, kwargs),
+            ),
+            allow_parallel=allow_parallel,
+        )
+        return task_id
+
+    def get_task(self, task_id: str) -> TaskRecord | None:
+        return self.repository.get_task(task_id)
+
+    def result(self, task_id: str) -> Any:
+        task = self.repository.get_task(task_id)
+        if task is None:
+            raise LookupError(f"Task result is not available: {task_id}")
+        if task.status is TaskStatus.FAILED:
+            detail = f": {task.error}" if task.error else ""
+            raise RuntimeError(f"Task failed{detail}")
+        if task.status is not TaskStatus.SUCCEEDED:
+            raise LookupError(f"Task has not completed: {task_id}")
+        if task.result_json is None:
+            return None
+        try:
+            return json.loads(task.result_json)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Stored task result is not valid JSON: {task_id}") from exc
+
+
+class BackgroundTaskWorker:
     """SQLite-backed polling worker with explicit, restart-safe lifecycle."""
 
     def __init__(
@@ -119,43 +166,14 @@ class BackgroundTaskRunner:
         with self._lock:
             self._futures.clear()
 
-    def submit(self, kind: str, *args: Any, **kwargs: Any) -> str:
-        task_id = uuid.uuid4().hex
-        now = datetime.now(UTC).isoformat()
-        self.repository.enqueue_task(
-            TaskRecord(
-                task_id=task_id,
-                kind=kind,
-                status=TaskStatus.QUEUED,
-                created_at=now,
-                updated_at=now,
-                payload_json=_encode_payload(args, kwargs),
-            )
-        )
-        self._wake_event.set()
-        return task_id
-
-    def get_task(self, task_id: str) -> TaskRecord | None:
-        return self.repository.get_task(task_id)
-
-    def result(self, task_id: str) -> Any:
-        while True:
-            task = self.repository.get_task(task_id)
-            if task is None:
-                raise LookupError(f"Task result is not available: {task_id}")
-            if task.status is TaskStatus.FAILED:
-                detail = f": {task.error}" if task.error else ""
-                raise RuntimeError(f"Task failed{detail}")
-            if task.status is TaskStatus.SUCCEEDED:
-                if task.result_json is None:
-                    return None
-                try:
-                    return json.loads(task.result_json)
-                except json.JSONDecodeError as exc:
-                    raise RuntimeError(f"Stored task result is not valid JSON: {task_id}") from exc
-            if not self.started:
-                raise LookupError(f"Task is queued but the runner is not started: {task_id}")
-            time.sleep(min(self.poll_interval_seconds, 0.05))
+    def run_forever(self) -> None:
+        """Run until interrupted, then stop accepting work and drain active tasks."""
+        self.start()
+        try:
+            while self.started:
+                self._stop_event.wait(1.0)
+        finally:
+            self.shutdown(wait=True)
 
     def _dispatch_loop(self) -> None:
         while not self._stop_event.is_set():

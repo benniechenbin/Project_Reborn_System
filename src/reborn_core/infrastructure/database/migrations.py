@@ -12,7 +12,7 @@ Migration = tuple[int, Callable[[sqlite3.Connection], None]]
 class MigrationRunner:
     """Applies the project's versioned, forward-only SQLite migrations."""
 
-    LATEST_VERSION = 5
+    LATEST_VERSION = 6
 
     def __init__(self, database: SQLiteDatabase) -> None:
         self.database = database
@@ -25,6 +25,7 @@ class MigrationRunner:
             (3, _migration_003_background_tasks),
             (4, _migration_004_backup_and_audit),
             (5, _migration_005_persistent_task_payloads),
+            (6, _migration_006_source_artifacts),
         )
         with self.database.transaction() as conn:
             conn.execute(
@@ -150,5 +151,30 @@ def _migration_005_persistent_task_payloads(conn: sqlite3.Connection) -> None:
         """
         CREATE INDEX IF NOT EXISTS idx_background_tasks_queue
         ON background_tasks(status, created_at, task_id)
+        """
+    )
+
+
+def _migration_006_source_artifacts(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS source_artifacts (
+            artifact_id TEXT PRIMARY KEY,
+            artifact_type TEXT NOT NULL,
+            storage_path TEXT NOT NULL UNIQUE,
+            file_size_bytes INTEGER NOT NULL CHECK (file_size_bytes >= 0),
+            content_sha256 TEXT NOT NULL,
+            authorization_purpose TEXT NOT NULL,
+            authorized_target TEXT NOT NULL,
+            sensitivity_level TEXT NOT NULL,
+            captured_at TEXT NOT NULL,
+            metadata_json TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_source_artifacts_type_captured
+        ON source_artifacts(artifact_type, captured_at DESC, artifact_id DESC)
         """
     )

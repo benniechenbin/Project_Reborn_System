@@ -5,7 +5,6 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
-from audio_recorder_streamlit import audio_recorder
 
 from reborn_core.application import InterviewMode
 from reborn_core.container import Container
@@ -19,6 +18,7 @@ from .runtime import (
     register_cached_app,
     streamlit_cache_token,
 )
+from .voice_scripts import VOICE_ARCHIVE_SCRIPTS
 
 
 @st.cache_resource(validate=is_cached_app_valid)
@@ -33,8 +33,14 @@ def submit_task(
     state_key: str,
     kind: str,
     *args: Any,
-) -> None:
-    st.session_state[state_key] = container.task_runner.submit(kind, *args)
+) -> bool:
+    try:
+        task_id = container.task_queue.submit(kind, *args)
+    except ValueError as exc:
+        st.warning(f"Task was not submitted again: {exc}")
+        return False
+    st.session_state[state_key] = task_id
+    return True
 
 
 @st.fragment(run_every="1s")
@@ -43,21 +49,25 @@ def render_running_task(container: Container, state_key: str, label: str) -> Non
     task_id = st.session_state.get(state_key)
     if not task_id:
         return
-    task = container.task_runner.get_task(task_id)
+    task = container.task_queue.get_task(task_id)
     if task is None:
         st.warning(f"{label}任务记录不存在")
         return
     if task.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED}:
         st.rerun()
-    st.info(f"{label}正在后台执行，任务 ID：`{task_id}`")
-    st.caption("任务完成后页面会自动更新。")
+    if task.status is TaskStatus.QUEUED:
+        st.info(f"{label}正在等待独立 Worker，任务 ID：`{task_id}`")
+        st.caption("请确认已在另一个终端运行 `uv run reborn worker`。")
+    else:
+        st.info(f"{label}正在独立 Worker 中执行，任务 ID：`{task_id}`")
+        st.caption("任务完成后页面会自动更新。")
 
 
 def task_result(container: Container, state_key: str, label: str) -> Any | None:
     task_id = st.session_state.get(state_key)
     if not task_id:
         return None
-    task = container.task_runner.get_task(task_id)
+    task = container.task_queue.get_task(task_id)
     if task is None:
         st.warning(f"{label}任务记录不存在")
         return None
@@ -68,7 +78,7 @@ def task_result(container: Container, state_key: str, label: str) -> Any | None:
         st.error(f"{label}失败：{task.error}")
         return None
     try:
-        return container.task_runner.result(task_id)
+        return container.task_queue.result(task_id)
     except LookupError:
         return json.loads(task.result_json) if task.result_json else None
 
@@ -87,8 +97,9 @@ def render_dashboard(container: Container) -> None:
     active = container.retrieval_generations.active_generation_id()
     st.caption(f"当前检索代次：`{active or '尚未建立'}`")
     if st.button("提交全量同步", type="primary"):
-        submit_task(container, "sync_task", "memory_sync")
-        st.rerun()
+        submitted = submit_task(container, "sync_task", "memory_sync")
+        if submitted:
+            st.rerun()
     result = task_result(container, "sync_task", "记忆同步")
     if result is not None:
         st.success("新检索代次已构建并原子切换")
@@ -170,8 +181,8 @@ def render_creator(container: Container) -> None:
             },
             *st.session_state.creator_chat,
         ]
-        submit_task(container, "creator_chat_task", "creator_chat", messages)
-        st.rerun()
+        if submit_task(container, "creator_chat_task", "creator_chat", messages):
+            st.rerun()
 
     chat_response = task_result(container, "creator_chat_task", "采访回复")
     chat_task = st.session_state.get("creator_chat_task")
@@ -185,15 +196,15 @@ def render_creator(container: Container) -> None:
         if len(st.session_state.creator_chat) < 3:
             st.warning("内容还太少，再多聊几句。")
         else:
-            submit_task(
+            if submit_task(
                 container,
                 "interview_task",
                 "interview_extraction",
                 list(st.session_state.creator_chat),
                 mode,
                 title or None,
-            )
-            st.rerun()
+            ):
+                st.rerun()
     result = task_result(container, "interview_task", "记忆提炼")
     if result is not None:
         snapshot_id = getattr(result, "identity_snapshot_id", None) or result.get(
@@ -240,13 +251,76 @@ def render_identity_review(container: Container) -> None:
                 st.rerun()
 
 
+def render_voice_archive(container: Container) -> None:
+    st.title("声音档案")
+    st.caption("录音将作为高敏感 SourceArtifact 保存，仅授权给本次指定的音色模型。")
+
+    script_label = st.selectbox("朗读场景", list(VOICE_ARCHIVE_SCRIPTS))
+    script_id, script_text = VOICE_ARCHIVE_SCRIPTS[script_label]
+    with st.container(border=True):
+        st.subheader(script_label)
+        st.markdown(script_text)
+
+    recorder_generation = st.session_state.setdefault("voice_archive_recorder_generation", 0)
+    audio_file = st.audio_input(
+        "录制声音档案",
+        sample_rate=48000,
+        key=f"voice_archive_recorder_{recorder_generation}",
+        help="请在安静环境中完整朗读上方脚本。",
+    )
+    audio_bytes = audio_file.getvalue() if audio_file is not None else None
+    if audio_bytes:
+        st.audio(audio_bytes, format="audio/wav")
+        st.caption(f"待归档录音：{len(audio_bytes):,} bytes")
+
+    authorized_target = st.text_input(
+        "授权使用的目标音色模型",
+        key="voice_archive_authorized_target",
+        placeholder="例如 family-voice-v1",
+    )
+    consent_given = st.checkbox(
+        "我明确授权这段录音仅用于训练上述指定音色模型",
+        key="voice_archive_consent",
+    )
+    save_requested = st.button(
+        "保存到声音档案",
+        type="primary",
+        disabled=not (audio_bytes and authorized_target.strip() and consent_given),
+    )
+    if save_requested and audio_bytes is not None:
+        try:
+            result = container.voice_archive_service.archive(
+                audio_bytes,
+                script_id=script_id,
+                script_text=script_text,
+                authorized_target=authorized_target,
+                consent_given=consent_given,
+            )
+        except Exception as exc:
+            st.error(f"声音档案保存失败：{exc}")
+        else:
+            st.session_state.last_voice_archive = result
+            st.session_state.voice_archive_recorder_generation = recorder_generation + 1
+            st.session_state.voice_archive_consent = False
+            st.rerun()
+
+    last_archive = st.session_state.get("last_voice_archive")
+    if last_archive is not None:
+        st.success(f"声音档案已保存：{last_archive.artifact_id}")
+        st.caption(
+            f"授权模型：{last_archive.authorized_target} · SHA-256：{last_archive.content_sha256}"
+        )
+
+
 def render_voice(container: Container) -> None:
     st.title("语音速记")
-    audio_bytes = audio_recorder(
-        text="点击录音 / 点击停止",
+    recorder_generation = st.session_state.setdefault("voice_recorder_generation", 0)
+    audio_file = st.audio_input(
+        "录制语音速记",
         sample_rate=16000,
-        key="voice_recorder",
+        key=f"voice_recorder_{recorder_generation}",
     )
+    audio_bytes = audio_file.getvalue() if audio_file is not None else None
     if audio_bytes and audio_bytes != st.session_state.get("voice_audio_bytes"):
         st.session_state.voice_audio_bytes = audio_bytes
         st.session_state.pop("voice_task", None)
@@ -262,7 +336,7 @@ def render_voice(container: Container) -> None:
         disabled=not bool(voice_audio_bytes),
     ):
         try:
-            submit_task(
+            submitted = submit_task(
                 container,
                 "voice_task",
                 "voice_capture",
@@ -271,8 +345,10 @@ def render_voice(container: Container) -> None:
         except Exception as exc:
             st.error(f"提交语音任务失败：{exc}")
         else:
-            st.session_state.pop("voice_audio_bytes", None)
-            st.rerun()
+            if submitted:
+                st.session_state.pop("voice_audio_bytes", None)
+                st.session_state.voice_recorder_generation = recorder_generation + 1
+                st.rerun()
     result = task_result(container, "voice_task", "语音处理")
     if result is not None:
         transcript = result.get("transcript", "") if isinstance(result, dict) else ""
@@ -288,14 +364,14 @@ def render_sandbox(container: Container) -> None:
             st.markdown(message["content"])
     if prompt := st.chat_input("开始对话"):
         st.session_state.sandbox_chat.append({"role": "user", "content": prompt})
-        submit_task(
+        if submit_task(
             container,
             "avatar_task",
             "avatar_response",
             prompt,
             list(st.session_state.sandbox_chat[:-1]),
-        )
-        st.rerun()
+        ):
+            st.rerun()
     result = task_result(container, "avatar_task", "陪伴回复")
     task_id = st.session_state.get("avatar_task")
     if result and st.session_state.get("consumed_avatar_task") != task_id:
@@ -317,21 +393,23 @@ def render_governance(container: Container, app: RebornApp) -> None:
             "backup_encryption_required": app.settings.backup_require_encryption,
         }
     )
-    if st.button("提交加密备份"):
-        submit_task(container, "backup_task", "encrypted_backup")
+    if st.button("提交加密备份") and submit_task(container, "backup_task", "encrypted_backup"):
         st.rerun()
     backup_result = task_result(container, "backup_task", "加密备份")
     if backup_result:
         st.success(f"备份已创建：{backup_result}")
 
     backup_path = st.text_input("备份文件路径", placeholder=str(app.settings.resolved_backup_dir))
-    if st.button("提交恢复演练") and backup_path:
-        submit_task(
+    if (
+        st.button("提交恢复演练")
+        and backup_path
+        and submit_task(
             container,
             "drill_task",
             "recovery_drill",
             backup_path,
         )
+    ):
         st.rerun()
     drill_result = task_result(container, "drill_task", "恢复演练")
     if drill_result:
@@ -356,13 +434,12 @@ def render_governance(container: Container, app: RebornApp) -> None:
         and app.settings.backup_encryption_key
         and app.settings.backup_previous_encryption_key
     )
-    if st.button("提交密钥轮换", disabled=rotation_disabled):
-        submit_task(
-            container,
-            "rotation_task",
-            "backup_key_rotation",
-            rotation_path,
-        )
+    if st.button("提交密钥轮换", disabled=rotation_disabled) and submit_task(
+        container,
+        "rotation_task",
+        "backup_key_rotation",
+        rotation_path,
+    ):
         st.rerun()
     rotation_result = task_result(container, "rotation_task", "密钥轮换")
     if rotation_result:
@@ -393,7 +470,7 @@ def main() -> None:
         st.header("Project Reborn")
         page = st.radio(
             "功能",
-            ["资产同步", "灵魂采访", "身份审批", "语音速记", "陪伴测试", "治理"],
+            ["资产同步", "灵魂采访", "身份审批", "声音档案", "语音速记", "陪伴测试", "治理"],
         )
         st.caption(f"生命周期：{'运行中' if app.started else '未启动'}")
         st.caption(f"待审身份：{len(container.identity_governance_service.list_pending())}")
@@ -402,6 +479,7 @@ def main() -> None:
         "资产同步": lambda: render_dashboard(container),
         "灵魂采访": lambda: render_creator(container),
         "身份审批": lambda: render_identity_review(container),
+        "声音档案": lambda: render_voice_archive(container),
         "语音速记": lambda: render_voice(container),
         "陪伴测试": lambda: render_sandbox(container),
         "治理": lambda: render_governance(container, app),

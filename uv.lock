@@ -199,19 +199,6 @@ wheels = [
 ]
 
 [[package]]
-name = "audio-recorder-streamlit"
-version = "0.0.10"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "altair" },
-    { name = "streamlit" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ab/99/58f61ad44ac7c9f3d37cdcff768f283e2bc5ac7bacccb047288204f83fa5/audio_recorder_streamlit-0.0.10.tar.gz", hash = "sha256:18dacee4c9bf3083a0e03058aff9e95e949cbf191ab0ec0213b6af88d7c429a6", size = 1360774, upload-time = "2024-07-30T17:02:16.056Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/31/9d/04b94f1b90efa99c036307e65c5670e96ef0af116c4b780b27a56e97ec82/audio_recorder_streamlit-0.0.10-py3-none-any.whl", hash = "sha256:cc5e77d11d2c19e1f170b9e022acf75138e75b7dd239df37c4aeade5ec22b3b5", size = 3660169, upload-time = "2024-07-30T17:02:14.023Z" },
-]
-
-[[package]]
 name = "audioread"
 version = "3.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2055,7 +2042,6 @@ name = "project-reborn-system"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "audio-recorder-streamlit" },
     { name = "cryptography" },
     { name = "funasr" },
     { name = "jieba" },
@@ -2099,7 +2085,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "audio-recorder-streamlit", specifier = ">=0.0.10" },
     { name = "cryptography", specifier = ">=49.0.0" },
     { name = "funasr", specifier = ">=1.0.0" },
     { name = "jieba", specifier = ">=0.42.1" },

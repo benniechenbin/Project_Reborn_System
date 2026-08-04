@@ -13,8 +13,12 @@ from reborn_core.application.models import (
     InterviewResult,
     MemoryVaultLayout,
     PromptContext,
+    SensitivityLevel,
+    SourceArtifact,
+    SourceArtifactType,
     SyncHistoryEntry,
     SyncMetrics,
+    VoiceArchiveResult,
 )
 from reborn_core.application.services import (
     AvatarService,
@@ -22,6 +26,7 @@ from reborn_core.application.services import (
     IdentityGovernanceService,
     InterviewService,
     SyncService,
+    VoiceArchiveService,
 )
 
 __all__ = [
@@ -41,7 +46,12 @@ __all__ = [
     "InterviewService",
     "MemoryVaultLayout",
     "PromptContext",
+    "SensitivityLevel",
+    "SourceArtifact",
+    "SourceArtifactType",
     "SyncHistoryEntry",
     "SyncMetrics",
     "SyncService",
+    "VoiceArchiveResult",
+    "VoiceArchiveService",
 ]

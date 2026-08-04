@@ -1,4 +1,4 @@
-﻿# 🗺️ Project Reborn — 产品演进路线 (ROADMAP)
+# 🗺️ Project Reborn — 产品演进路线 (ROADMAP)
 
 ## 项目定位
 
@@ -40,7 +40,7 @@
 - [x] Obsidian 知识库同步管道：YAML 解析、双层分块、原子切换检索代次
 - [x] 身份快照治理：访谈提炼 → pending_review → 人工审批 → 晋升为当前身份
 - [ ] RAG 引擎核心逻辑打通：rag_engine.py 沙盒交互与检索代次注入规范完善
-- [ ] 数据源追踪建模（SourceArtifact）：原始物料哈希、授权范围与敏感级别记录
+- [x] 数据源追踪建模（SourceArtifact）：原始物料哈希、授权范围与敏感级别记录（v6 迁移 + 声音档案）
 - [ ] 跨进程锁与租约机制：防止多端并发同步冲突
 
 ### P1-C：人格校验与安全对齐
@@ -51,7 +51,8 @@
 
 ### P1-D：系统生产化与运维
 
-- [ ] 独立/持久化任务队列：升级为支持网络通信、可恢复的独立 Worker（Celery/Redis 或等效方案）
+- [x] 独立 Worker 守护进程（SQLite 轮询，`uv run reborn worker`）；跨进程任务抢占与崩溃恢复已实现
+- [ ] 可选升级：分布式任务队列（Celery/Redis），当前 SQLite Worker 满足单机需求
 - [ ] 开放标准导出格式与数据治理手册
 - [ ] 至少每年执行一次恢复演练并留存记录
 
@@ -75,7 +76,7 @@
 - [ ] 录制家长语音训练素材（建议 30 分钟以上，涵盖多种语境）
 - [ ] 接入 GPT-SoVITS 本地语音克隆系统，训练个性化音色模型
 - [ ] 实现 STT → RAG 推理 → TTS 完整语音对话链路
-- [ ] 语音素材纳入 SourceArtifact 管理，包含授权范围与隐私保护机制
+- [x] 语音素材纳入 SourceArtifact 管理，包含 SHA-256、授权目标、高敏感级别与 PCM 元数据（Sprint 6）
 
 ### P2-C：数字人形象接入（视觉维度）
 
@@ -107,8 +108,8 @@
 | 精排       | BGE-reranker-base（本地） | BGE-reranker-v2 系列       |
 | 语音克隆   | 待接入                    | GPT-SoVITS                 |
 | 数字人驱动 | 待调研                    | SadTalker / MuseTalk       |
-| 任务队列   | 进程内 ThreadPoolExecutor | Celery + Redis             |
+| 任务队列   | SQLite 轮询 + 独立 Worker 进程 | Celery + Redis         |
 
 ---
 
-*最后更新：2026-08-03*
+*最后更新：2026-08-04*

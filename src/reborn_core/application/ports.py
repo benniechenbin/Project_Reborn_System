@@ -6,6 +6,8 @@ from reborn_core.application.models import (
     IdentitySnapshot,
     IdentitySnapshotStatus,
     ModelMetadata,
+    SourceArtifact,
+    SourceArtifactType,
     SyncHistoryEntry,
 )
 from reborn_core.security.access import AccessAction, AccessContext
@@ -93,6 +95,24 @@ class IdentitySnapshotRepository(Protocol):
         reviewed_by: str,
         review_note: str | None = None,
     ) -> IdentitySnapshot: ...
+
+
+class SourceArtifactRepository(Protocol):
+    def create_source_artifact(self, artifact: SourceArtifact) -> None: ...
+
+    def get_source_artifact(self, artifact_id: str) -> SourceArtifact | None: ...
+
+    def list_source_artifacts(
+        self,
+        artifact_type: SourceArtifactType | None = None,
+        limit: int = 20,
+    ) -> list[SourceArtifact]: ...
+
+
+class AudioArchiveStoragePort(Protocol):
+    def save_audio(self, artifact_id: str, audio_bytes: bytes) -> str: ...
+
+    def delete_audio(self, storage_path: str) -> None: ...
 
 
 class AccessPolicyPort(Protocol):

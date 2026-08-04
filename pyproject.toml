@@ -10,7 +10,6 @@ readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "llvmlite<=0.48.0",
-    "audio-recorder-streamlit>=0.0.10",
     "cryptography>=49.0.0",
     "funasr>=1.0.0",
     "jieba>=0.42.1",
