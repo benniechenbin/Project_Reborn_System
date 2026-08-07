@@ -168,23 +168,27 @@ class Settings(BaseSettings):
     )
 
     core_values_folder: str = Field(
-        default="02_Values",
+        default="30_Values",
         description="价值观和身份核所在的 Obsidian 目录名",
     )
     stories_folder: str = Field(
-        default="03_Stories",
+        default="40_Stories",
         description="人生故事记忆所在的 Obsidian 目录名",
     )
     ai_reflections_folder: str = Field(
-        default="00_AI_Reflections",
+        default="20_AI_Reflections",
         description="AI 派生价值观反思所在的子目录名",
     )
+    identity_history_folder: str = Field(
+        default="10_Identity_History",
+        description="身份核历史快照所在的子目录名",
+    )
     source_artifacts_folder: str = Field(
-        default="01_Source_Artifacts",
+        default="20_Source_Artifacts",
         description="不可变原始资料归档目录名",
     )
     REBORN_TARGET_FOLDERS: tuple[str, ...] = Field(
-        default=("02_Values", "03_Stories"),
+        default=("30_Values", "40_Stories"),
         description="需要摄入检索索引的 Obsidian 目录",
     )
 
@@ -255,7 +259,7 @@ class Settings(BaseSettings):
 
     @property
     def memory_index_folders(self) -> tuple[str, ...]:
-        default_folders = ("02_Values", "03_Stories")
+        default_folders = ("30_Values", "40_Stories")
         if tuple(self.REBORN_TARGET_FOLDERS) != default_folders:
             return self.REBORN_TARGET_FOLDERS
         return (self.core_values_folder, self.stories_folder)

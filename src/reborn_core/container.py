@@ -180,6 +180,7 @@ class Container:
             core_values_folder=self.settings.core_values_folder,
             stories_folder=self.settings.stories_folder,
             ai_reflections_folder=self.settings.ai_reflections_folder,
+            identity_history_folder=self.settings.identity_history_folder,
             source_artifacts_folder=self.settings.source_artifacts_folder,
             memory_gaps_path=self.settings.resolved_memory_gaps_path,
         )

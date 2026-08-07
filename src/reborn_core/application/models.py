@@ -267,5 +267,6 @@ class MemoryVaultLayout:
     core_values_folder: str
     stories_folder: str
     ai_reflections_folder: str
+    identity_history_folder: str
     source_artifacts_folder: str
     memory_gaps_path: Path

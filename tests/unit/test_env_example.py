@@ -49,6 +49,12 @@ def test_env_example_uses_defaults_and_hides_secrets():
     assert "BACKUP_PREVIOUS_ENCRYPTION_KEY=\n" in content
     assert "TASK_POLL_INTERVAL_SECONDS=0.2" in content
     assert "BACKUP_REQUIRE_ENCRYPTION=true" in content
+    assert "CORE_VALUES_FOLDER=30_Values" in content
+    assert "STORIES_FOLDER=40_Stories" in content
+    assert "AI_REFLECTIONS_FOLDER=20_AI_Reflections" in content
+    assert "IDENTITY_HISTORY_FOLDER=10_Identity_History" in content
+    assert "SOURCE_ARTIFACTS_FOLDER=20_Source_Artifacts" in content
+    assert 'REBORN_TARGET_FOLDERS=["30_Values", "40_Stories"]' in content
     assert "BASE_DIR=" not in content
 
 

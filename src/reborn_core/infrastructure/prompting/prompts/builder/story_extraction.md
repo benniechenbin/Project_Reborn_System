@@ -14,7 +14,7 @@ variables: [creator_name, child_nickname]
 ```markdown
 ---
 date: 当前日期，例如 2026-04-23
-category: 03_Stories
+category: 40_Stories
 tags: [提取2-3个核心故事标签]
 emotion_anchor: [提炼故事的主要情绪基调，例如 怀旧/幽默/紧张]
 involved_people: [提取涉及的人物]

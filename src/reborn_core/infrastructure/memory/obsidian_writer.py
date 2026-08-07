@@ -78,7 +78,7 @@ class ObsidianMemoryWriter:
         content: str,
         source_ref: str | None = None,
     ) -> bool:
-        """保存价值观/认知类记忆 (ROM) 到 00_AI_Reflections"""
+        """保存价值观/认知类记忆 (ROM) 到配置的 AI 反思目录。"""
         target_dir = (
             self.obsidian_root / self.layout.core_values_folder / self.layout.ai_reflections_folder
         )
@@ -110,7 +110,7 @@ class ObsidianMemoryWriter:
         content: str,
         source_ref: str | None = None,
     ) -> bool:
-        """保存往事/经历类记忆 (RAM) 到 03_Stories"""
+        """保存往事/经历类记忆 (RAM) 到配置的故事目录。"""
         target_dir = self.obsidian_root / self.layout.stories_folder
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -152,7 +152,7 @@ class ObsidianMemoryWriter:
                 old_content = target_path.read_text(encoding="utf-8")
                 if old_content == content:
                     return True
-                history_dir = target_dir / "00_Identity_History"
+                history_dir = target_dir / self.layout.identity_history_folder
                 history_path = history_dir / (
                     datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ") + ".md"
                 )

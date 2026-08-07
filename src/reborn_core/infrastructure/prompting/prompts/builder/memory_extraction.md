@@ -14,7 +14,7 @@ variables: [creator_name, child_nickname]
 ```markdown
 ---
 date: 当前日期，例如 2026-04-23
-category: 02_Values
+category: 30_Values
 tags: [提取2-3个核心关键词标签]
 emotion_anchor: [提炼对话中的主要情绪基调，例如 深思熟虑/焦虑/温情]
 life_chapter: [推测的人生阶段，例如 事业探索期/育儿阶段/未知]

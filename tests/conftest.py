@@ -59,6 +59,7 @@ def memory_vault_layout(test_settings):
         core_values_folder=test_settings.core_values_folder,
         stories_folder=test_settings.stories_folder,
         ai_reflections_folder=test_settings.ai_reflections_folder,
+        identity_history_folder=test_settings.identity_history_folder,
         source_artifacts_folder=test_settings.source_artifacts_folder,
         memory_gaps_path=test_settings.resolved_memory_gaps_path,
     )

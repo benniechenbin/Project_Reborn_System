@@ -12,9 +12,9 @@ def mock_vault(tmp_path):
     vault.mkdir()
 
     # Create target folders
-    values_dir = vault / "02_Values"
+    values_dir = vault / "30_Values"
     values_dir.mkdir()
-    stories_dir = vault / "03_Stories"
+    stories_dir = vault / "40_Stories"
     stories_dir.mkdir()
 
     # Add some md files
@@ -51,7 +51,7 @@ def load_processed_knowledge_with_rag(*args, **kwargs):
 
 def test_load_processed_knowledge(mock_vault):
     vault_path, _ = mock_vault
-    target_folders = ["02_Values", "03_Stories"]
+    target_folders = ["30_Values", "40_Stories"]
 
     docs = load_processed_knowledge_with_rag(
         vault_path=vault_path,
@@ -63,12 +63,12 @@ def test_load_processed_knowledge(mock_vault):
     assert any("Childhood" in d.page_content for d in docs)
     # Check frontmatter was parsed and stripped
     assert all("---" not in d.page_content for d in docs)
-    assert any(d.metadata.get("category") == "02_Values" for d in docs)
+    assert any(d.metadata.get("category") == "30_Values" for d in docs)
 
 
 def test_load_processed_knowledge_missing_folder(mock_vault):
     vault_path, _ = mock_vault
-    target_folders = ["02_Values", "04_NonExistent"]
+    target_folders = ["30_Values", "04_NonExistent"]
 
     docs = load_processed_knowledge_with_rag(
         vault_path=vault_path,
@@ -98,7 +98,7 @@ def test_asset_scanner_can_limit_notes_to_target_folders(mock_vault):
     private_dir = vault_path / "99_Private"
     private_dir.mkdir()
     (private_dir / "diary.md").write_text("this should not be counted", encoding="utf-8")
-    scanner = AssetScanner(vault_path, audio_dir, target_folders=("02_Values",))
+    scanner = AssetScanner(vault_path, audio_dir, target_folders=("30_Values",))
 
     notes, words = scanner.count_notes_and_words()
 
