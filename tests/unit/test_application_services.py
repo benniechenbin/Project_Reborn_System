@@ -119,35 +119,11 @@ def test_identity_governance_promotes_only_after_human_approval(prompt_context, 
         snapshots,
         memory,
         LocalOwnerAccessPolicy(),
-        prompt_context,
-        prompt_renderer,
     ).approve(result.identity_snapshot_id, "Reviewed by owner")
 
     assert reviewed.status is IdentitySnapshotStatus.APPROVED
     assert reviewed.active
     assert memory.identity == "pending identity"
-
-
-def test_nightly_reflection_uses_registry_prompt_metadata(prompt_context, prompt_renderer):
-    llm = StubLLM()
-    memory = StubMemory()
-    snapshots = StubSnapshots()
-    service = IdentityGovernanceService(
-        snapshots,
-        memory,
-        LocalOwnerAccessPolicy(),
-        prompt_context,
-        prompt_renderer,
-        llm_router=llm,
-    )
-
-    snapshot = service.run_nightly_reflection([{"role": "user", "content": "I like astronomy."}])
-
-    assert snapshot is not None
-    assert snapshot.status is IdentitySnapshotStatus.PENDING_REVIEW
-    assert snapshot.prompt.prompt_id == "nightly_reflection_system"
-    assert snapshot.prompt.version == "2026-07-03.v1"
-    assert len(snapshot.prompt.sha256) == 64
 
 
 @dataclass

@@ -22,6 +22,7 @@ Python 3 和本仓库中的独立脚本 scripts/offline_restore.py。
 3. scripts/offline_restore.py 的纸质校验值或可信副本。
 4. Python 3.11 或更新的兼容版本。
 5. cryptography 包。建议现在就把与目标系统匹配的 wheel 和本手册一起保存在离线介质。
+6. 上述脚本、wheel、手册和备份各自的 SHA-256 校验值；校验值应另存于可信纸质或离线介质。
 
 脚本不 import reborn_core，不需要项目依赖、数据库服务、Qdrant、模型或网络连接。
 
@@ -56,8 +57,18 @@ python scripts/offline_restore.py D:/recovery/backup.zip.fernet D:/recovery/rest
 脚本会在终端中安全提示输入 Fernet 密钥，输入内容不会回显。不要把密钥直接写进命令行参数，
 以免进入 shell 历史。
 
-无人值守演练可以临时设置 REBORN_BACKUP_KEY 环境变量；真实继承恢复仍推荐交互输入，并在
-执行后立即清除环境变量。
+无人值守演练应临时设置 `BACKUP_ENCRYPTION_KEY`。PowerShell 示例：
+
+```powershell
+$env:BACKUP_ENCRYPTION_KEY = "<44 字符 Fernet 密钥>"
+python scripts/offline_restore.py D:/recovery/backup.zip.fernet D:/recovery/restored
+Remove-Item Env:BACKUP_ENCRYPTION_KEY
+```
+
+脚本优先读取 `BACKUP_ENCRYPTION_KEY`；仅为兼容旧演练流程，随后才读取
+`REBORN_BACKUP_KEY`。如果两个变量都不存在，脚本会安全地交互询问密钥。
+
+真实继承恢复仍推荐交互输入。使用环境变量时，执行结束后必须立即清除，并避免把终端环境转储到日志。
 
 脚本会依次：
 
@@ -118,3 +129,14 @@ sqlite_integrity 结果。将原备份重新设为只读并离线保存；明文
 
 至少每年执行一次不接触真实生产目录的恢复演练。密钥轮换后，应先用新备份完成本手册的独立演练，
 确认成功后再移除临时的 BACKUP_PREVIOUS_ENCRYPTION_KEY；Project Reborn 不会自动删除旧备份。
+
+### 定期隔离黑盒演练
+
+1. 新建空白临时目录，只复制可信的 `offline_restore.py`、加密备份和离线
+   `cryptography` wheel，不复制 Project Reborn 源码、虚拟环境或配置文件。
+2. 断开网络后安装离线 wheel，使用 `python -I` 启动脚本，确认过程不依赖
+   `reborn_core`、Streamlit、Qdrant 或模型服务。
+3. 核对恢复报告的 `sqlite_integrity` 为 `ok`，并人工确认
+   `profile/project_profile.toml`、`vault/**/*.md` 和 `sqlite/reborn.db` 均存在。
+4. 记录 Python 与 `cryptography` 版本、脚本/备份 SHA-256、操作者、授权依据、时间和结果；
+   演练明文只能写入临时目录，复盘结束后按授权流程清理。

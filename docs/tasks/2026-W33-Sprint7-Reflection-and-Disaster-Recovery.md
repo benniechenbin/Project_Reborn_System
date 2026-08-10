@@ -9,6 +9,21 @@
 
 ## 🎯 核心战役
 
+### 实施契约与现状修正（2026-08-10）
+
+- Sprint 5 已交付 `scripts/offline_restore.py` 和
+  `docs/ops/offline_recovery_manual.md`；本期对其做契约补强、隔离黑盒演练和验收，
+  不重复新建同名交付物。
+- “稳定价值观快照”统一指当前 `active=True` 且状态为 `approved` 的
+  `IdentitySnapshot`。夜间反思在来源归档与 Worker 执行两个时点都必须满足该条件。
+- CLI 仅在操作者显式传入 `--confirm-authorized` 时自动归档聊天记录；
+  该确认表示操作者已获得将记录用于身份反思的授权。
+- `nightly_reflection` 队列载荷只保存 `SourceArtifact` ID，不携带高敏感聊天正文。
+  来源物必须通过类型、授权用途、授权目标、路径、字节数和 SHA-256 校验后
+  才可用于生成 `pending_review` 快照。
+- 本期不新增定时调度器或 Streamlit 入口；仅交付可由人工 CLI 或外部计划任务
+  触发的持久化后台作业。
+
 ### 🧠 Phase 3: 核心业务深度演进 (独立认知解耦)
 
 #### 任务一：夜间反思独立用例拆分与溯源绑定 (Nightly Reflection Service)
@@ -43,3 +58,22 @@
 1. **后台反思流测试**：通过 CLI 触发一个 `nightly_reflection` 模拟任务，断言其能被 `Worker` 进程拾取，并正确生成包含 `SourceArtifact` 的待审快照。
 2. **依赖边界核查**：运行静态检查工具（`ruff` 和 `mypy`），确保 `ReflectionService` 的拆分没有引入新的循环依赖或架构越权。
 3. **灾备演练复盘**：依照编写完成的 `offline_recovery_manual.md`，在完全断网且不加载项目原始依赖的沙盒容器中，仅通过单一脚本进行一次黑盒解密演练，验证手册的可用性。
+
+## 实施与验收记录（2026-08-10）
+
+### 已完成
+
+- 夜间反思已从 `IdentityGovernanceService` 拆至独立 `ReflectionService`，治理服务只保留人工审批职责。
+- CLI 会在显式授权确认后，把规范化聊天 JSON 原子归档为高敏感 SourceArtifact；队列只保存 Artifact ID。
+- Worker 在调用 LLM 前复核来源类型、授权、相对路径、大小、SHA-256 和归档时绑定的激活批准快照。
+- 新候选固定进入 `pending_review`，使用真实 Artifact ID 作为来源，并记录批准父快照。
+- 离线恢复脚本优先读取 `BACKUP_ENCRYPTION_KEY`，手册补充了离线 wheel、校验值和隔离黑盒演练流程。
+- 未增加 SQLite migration、定时调度器、Streamlit 入口、运行时依赖，也未修改任何真实用户数据。
+
+### 验收
+
+- targeted tests：44 passed，覆盖反思准入/篡改/路径越界/父快照过期、CLI + 独立 Worker 子进程和隔离恢复。
+- 完整测试：180 passed，1 个第三方 `pkg_resources` 弃用警告。
+- 静态检查：`uv run ruff check .` 通过；`uv run mypy .` 对 108 个源文件零问题。
+- 环境备注：pytest 退出码为 0；测试汇总完成后，Windows 原生 pyarrow/sklearn 依赖链仍打印一次既有
+  access violation 堆栈，未造成测试失败。

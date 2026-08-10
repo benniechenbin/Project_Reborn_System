@@ -29,6 +29,7 @@ class IdentitySnapshotStatus(StrEnum):
 
 class SourceArtifactType(StrEnum):
     AUDIO_DATASET = "audio_dataset"
+    REFLECTION_TRANSCRIPT = "reflection_transcript"
 
 
 class SensitivityLevel(StrEnum):
@@ -195,6 +196,20 @@ class VoiceArchiveResult:
     storage_path: str
     content_sha256: str
     authorized_target: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReflectionSubmission:
+    task_id: str
+    source_artifact_id: str
+    status: str = "queued"
+
+    def as_dict(self) -> dict[str, str]:
+        return {
+            "task_id": self.task_id,
+            "source_artifact_id": self.source_artifact_id,
+            "status": self.status,
+        }
 
 
 @dataclass(frozen=True, slots=True)

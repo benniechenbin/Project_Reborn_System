@@ -19,6 +19,9 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate = sub.add_parser("evaluate")
     evaluate.add_argument("--suite", type=Path)
     sub.add_parser("backup")
+    nightly_reflection = sub.add_parser("nightly-reflection")
+    nightly_reflection.add_argument("input", type=Path)
+    nightly_reflection.add_argument("--confirm-authorized", action="store_true")
     verify = sub.add_parser("verify-backup")
     verify.add_argument("path", type=Path)
     drill = sub.add_parser("recovery-drill")
@@ -70,6 +73,18 @@ def main(argv: list[str] | None = None) -> int:
                 return 0 if report.passed else 1
             elif args.command == "backup":
                 print(container.run_backup())
+            elif args.command == "nightly-reflection":
+                if not args.confirm_authorized:
+                    raise ValueError("必须传入 --confirm-authorized，确认已获得聊天记录反思授权")
+                try:
+                    chat_logs = json.loads(args.input.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise ValueError(f"无法读取夜间反思输入：{exc}") from exc
+                submission = container.submit_nightly_reflection(
+                    chat_logs,
+                    consent_given=True,
+                )
+                print(json.dumps(submission.as_dict(), ensure_ascii=False))
             elif args.command == "verify-backup":
                 print(
                     json.dumps(
@@ -94,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(container.identity_governance_service.reject(args.snapshot_id, args.note))
             elif args.command == "legacy-status":
                 print(container.legacy_activation_policy.evaluate())
-    except RebornError as exc:
+    except (RebornError, ValueError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 2
     return 0

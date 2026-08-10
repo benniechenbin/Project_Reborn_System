@@ -7,15 +7,18 @@ from reborn_core.application.models import (
     ChatMessage,
     EvaluationReport,
     EvaluationSuite,
+    IdentitySnapshot,
     InterviewMode,
     MemoryVaultLayout,
     PromptContext,
+    ReflectionSubmission,
 )
 from reborn_core.application.services import (
     AvatarService,
     EvaluateRunner,
     IdentityGovernanceService,
     InterviewService,
+    ReflectionService,
     SyncService,
     VoiceArchiveService,
 )
@@ -33,7 +36,10 @@ if TYPE_CHECKING:
         SQLiteSyncHistoryRepository,
         SQLiteTaskRepository,
     )
-    from reborn_core.infrastructure.memory import LocalAudioArchiveStorage
+    from reborn_core.infrastructure.memory import (
+        LocalAudioArchiveStorage,
+        LocalReflectionSourceStorage,
+    )
     from reborn_core.runtime import BackgroundTaskWorker, TaskQueue
 
 
@@ -79,6 +85,27 @@ class Container:
         return VoiceArchiveService(
             storage=self.audio_archive_storage,
             repository=self.source_artifact_repository,
+        )
+
+    @cached_property
+    def reflection_source_storage(self) -> "LocalReflectionSourceStorage":
+        from reborn_core.infrastructure.memory import LocalReflectionSourceStorage
+
+        layout = self.memory_vault_layout
+        return LocalReflectionSourceStorage(
+            obsidian_root=layout.obsidian_root,
+            source_artifacts_folder=layout.source_artifacts_folder,
+        )
+
+    @cached_property
+    def reflection_service(self) -> ReflectionService:
+        return ReflectionService(
+            snapshots=self.identity_snapshot_repository,
+            source_artifacts=self.source_artifact_repository,
+            source_storage=self.reflection_source_storage,
+            prompt_context=self.prompt_context,
+            prompt_renderer=self.prompt_registry,
+            llm_router_factory=lambda: self.llm_router,
         )
 
     @cached_property
@@ -144,6 +171,7 @@ class Container:
             "memory_sync": self.run_sync,
             "creator_chat": self.generate_chat,
             "interview_extraction": self.run_interview_task,
+            "nightly_reflection": self.run_nightly_reflection,
             "voice_capture": self.process_voice_capture,
             "avatar_response": self.generate_avatar_response,
             "encrypted_backup": self.run_backup,
@@ -207,9 +235,6 @@ class Container:
             self.identity_snapshot_repository,
             self.memory_writer,
             self.access_policy,
-            llm_router_factory=lambda: self.llm_router,
-            prompt_context=self.prompt_context,
-            prompt_renderer=self.prompt_registry,
         )
 
     @cached_property
@@ -342,6 +367,25 @@ class Container:
         custom_title: str | None = None,
     ):
         return self.run_interview(chat_history, InterviewMode(mode), custom_title)
+
+    def submit_nightly_reflection(
+        self,
+        chat_logs: list[ChatMessage],
+        *,
+        consent_given: bool,
+    ) -> ReflectionSubmission:
+        artifact = self.reflection_service.prepare_source(
+            chat_logs,
+            consent_given=consent_given,
+        )
+        task_id = self.task_queue.submit("nightly_reflection", artifact.artifact_id)
+        return ReflectionSubmission(
+            task_id=task_id,
+            source_artifact_id=artifact.artifact_id,
+        )
+
+    def run_nightly_reflection(self, source_artifact_id: str) -> IdentitySnapshot:
+        return self.reflection_service.run(source_artifact_id)
 
     def process_voice_capture(self, audio_bytes: bytes):
         transcript = self.stt_engine.transcribe_audio_bytes(audio_bytes)

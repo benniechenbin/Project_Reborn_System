@@ -215,6 +215,16 @@ uv run reborn evaluate --suite docs/eval/child-safety-persona.v1.json
 身份快照默认进入待审状态，不会自动成为当前人格。加密备份、恢复演练、身份审批与数字遗产状态可通过
 `uv run reborn --help` 查看对应命令。备份默认要求配置 `BACKUP_ENCRYPTION_KEY`。
 
+夜间反思必须以当前已批准且激活的身份快照为基线，并先将聊天 JSON 归档为高敏感
+`SourceArtifact`。获得授权后可提交任务，再由独立 Worker 执行：
+
+```bash
+uv run reborn nightly-reflection path/to/chat.json --confirm-authorized
+uv run reborn worker
+```
+
+提交命令只输出 queued 任务与 Artifact 标识，不等待模型执行；队列载荷不包含聊天正文。
+
 后台任务的种类和参数会先写入 SQLite；进程意外退出后，尚未开始的 queued 任务会由下一次启动接管，
 已经开始执行的 running 任务则会明确标记为失败，避免重复副作用。
 

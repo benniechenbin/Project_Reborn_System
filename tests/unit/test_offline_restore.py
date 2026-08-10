@@ -1,7 +1,12 @@
 import hashlib
 import json
+import os
+import shutil
 import sqlite3
+import subprocess
+import sys
 import zipfile
+from pathlib import Path
 
 import pytest
 from cryptography.fernet import Fernet
@@ -96,3 +101,57 @@ def test_standalone_offline_restore_rejects_checksum_mismatch(tmp_path):
 
     with pytest.raises(ValueError, match="哈希校验失败"):
         restore_backup(encrypted, tmp_path / "output", key.decode("ascii"))
+
+
+def test_offline_restore_cli_runs_isolated_with_primary_environment_key(
+    test_settings,
+    tmp_path,
+):
+    key = Fernet.generate_key().decode("ascii")
+    settings = test_settings.model_copy(update={"backup_encryption_key": key})
+    vault = settings.base_dir / "data" / "memories"
+    vault.mkdir(parents=True)
+    (vault / "offline-journal.md").write_text("portable memory", encoding="utf-8")
+    backup = create_service(settings).create_backup()
+
+    isolated = tmp_path / "isolated"
+    isolated.mkdir()
+    script = isolated / "offline_restore.py"
+    shutil.copyfile(
+        Path(__file__).parents[2] / "scripts" / "offline_restore.py",
+        script,
+    )
+    output = isolated / "restored"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env.update(
+        {
+            "BACKUP_ENCRYPTION_KEY": key,
+            "REBORN_BACKUP_KEY": Fernet.generate_key().decode("ascii"),
+        }
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            str(script),
+            str(backup),
+            str(output),
+        ],
+        cwd=isolated,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    report = json.loads(completed.stdout)
+    assert report["sqlite_integrity"] == "ok"
+    assert (output / "profile" / "project_profile.toml").is_file()
+    assert (output / "vault" / "offline-journal.md").read_text(encoding="utf-8") == (
+        "portable memory"
+    )
+    assert (output / "sqlite" / "reborn.db").is_file()

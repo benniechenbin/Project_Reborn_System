@@ -88,7 +88,7 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 - **已完成：SourceArtifact 与声音档案**：SQLite v6 记录音频资产哈希、授权目标和高敏级别；原生 Streamlit 录音以原子文件写入纳入审计。
 - **跨进程锁与租约**：在构建和切换检索代次时，引入基于文件系统或数据库的跨进程锁（Lock）与租约（Lease）机制，防止 Streamlit、CLI 和未来独立守护进程并发同步时发生冲突。
 - **待后续：新增稳定 API 接口层**：在存在明确客户端需求后再评估 API 技术选型，不在当前重构中引入 Web 框架。
-- **拆分夜间反思独立用例**：将夜间反思从 `IdentityGovernanceService` 中拆出，封装为独立的后台作业。分析产生的反思源关联对应的 `SourceArtifact`，且只有具备稳定价值观的快照候选才允许进入人机审批流程。
+- **已完成：夜间反思独立用例**：`ReflectionService` 负责授权来源归档和候选生成；队列仅保存 `SourceArtifact` ID，Worker 执行前复核文件完整性及其绑定的当前批准快照。
 - **安全性与人格对齐测试**：引入自动评估机制（Evaluate Runner），包含儿童安全回归测试、人格回归测试和提示词版本评估，确保大模型基座或提示词变更时，数字分身的价值观不发生偏移。
 
 #### P1-D：系统生产化（中低优先级）
@@ -119,13 +119,16 @@ SQLite / Obsidian / Qdrant / LLM / STT / backup
 - 备份包含 SQLite 一致性快照、Obsidian 资料、家庭资料 TOML 和数字遗产激活文件；可重建的模型与检索索引不纳入。
 - 恢复演练会解密、校验每个文件哈希、在隔离临时目录解包，并执行 SQLite integrity check。
 - 密钥轮换使用临时 BACKUP_PREVIOUS_ENCRYPTION_KEY 解密旧归档，以当前密钥重新加密；原文件不会被覆盖或删除。
-- scripts/offline_restore.py 可在没有项目运行环境、Streamlit 和 Qdrant 时恢复开放格式资产，操作规范见离线恢复手册。- 数字遗产激活支持 `owner_only`、`activation_file`、`activated` 三种规则。激活文件必须包含授权人、
+- scripts/offline_restore.py 可在没有项目运行环境、Streamlit 和 Qdrant 时恢复开放格式资产，操作规范见离线恢复手册。
+- 数字遗产激活支持 `owner_only`、`activation_file`、`activated` 三种规则。激活文件必须包含授权人、
   批准时间和证据引用。
 
 ### 后台任务
 
 Streamlit 的聊天、访谈提炼、同步、语音转写、RAG 回复、备份、恢复演练和密钥轮换通过
 `TaskQueue` 将安全 JSON 载荷写入 SQLite；声音档案则直接调用归档用例，长音频不会进入任务载荷。
+夜间反思在入队前将聊天 JSON 原子归档为高敏感 SourceArtifact，任务载荷仅保存 Artifact ID；
+Worker 读取时重新校验授权字段、相对路径、字节数、SHA-256 和归档时绑定的激活批准快照。
 `uv run reborn worker` 是唯一持有 `BackgroundTaskWorker` 和受控 `ThreadPoolExecutor` 的进程，
 它按创建时间原子认领 queued 任务并通过 Container 注入的 handler 注册表执行。
 Worker 启动时将上次已经开始的 running 任务标记为失败，避免非幂等副作用被盲目重试；
@@ -137,6 +140,8 @@ queued 任务保持可接管。本地部署继续使用 SQLite，不引入 Celer
 uv run reborn check
 uv run reborn sync
 uv run reborn identity-list
+uv run reborn nightly-reflection path/to/chat.json --confirm-authorized
+uv run reborn worker
 uv run reborn identity-approve <snapshot-id> --note "reviewed"
 uv run reborn backup
 uv run reborn generate-encryption-key
@@ -165,7 +170,7 @@ uv run reborn legacy-status
 
 ### Phase 3: 核心业务深度演进（中优先级，中/高难度）
 
-- **拆分夜间反思独立用例**：将夜间反思从 `IdentityGovernanceService` 中拆出，封装为独立的后台作业。分析产生的反思源关联对应的 `SourceArtifact`，且只有具备稳定价值观的快照候选才允许进入人机审批流程。
+- **已完成：夜间反思独立用例**：`ReflectionService` 负责授权来源归档和候选生成；队列仅保存 `SourceArtifact` ID，Worker 执行前复核文件完整性及其绑定的当前批准快照。
 - **安全性与人格对齐测试**：引入自动评估机制（Evaluate Runner），包含儿童安全回归测试、人格回归测试和提示词版本评估，确保大模型基座或提示词变更时，数字分身的价值观不发生偏移。
 
 ### Phase 4: 系统运维与高可用生产化（中/低优先级，高难度）

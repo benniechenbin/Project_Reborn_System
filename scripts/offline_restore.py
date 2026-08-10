@@ -175,7 +175,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
-    key = os.environ.get("REBORN_BACKUP_KEY") or getpass.getpass("Fernet 密钥：")
+    key = (
+        os.environ.get("BACKUP_ENCRYPTION_KEY")
+        or os.environ.get("REBORN_BACKUP_KEY")
+        or getpass.getpass("Fernet 密钥：")
+    )
     try:
         result = restore_backup(args.archive, args.output, key)
     except Exception as exc:
