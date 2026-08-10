@@ -122,11 +122,7 @@ def test_cli_submission_is_completed_by_independent_worker_process(test_settings
         check=False,
     )
     assert submitted.returncode == 0, submitted.stderr
-    submission = next(
-        payload
-        for payload in (json.loads(line) for line in submitted.stdout.splitlines())
-        if "task_id" in payload
-    )
+    submission = json.loads(submitted.stdout)
     task_id = submission["task_id"]
     artifact_id = submission["source_artifact_id"]
 

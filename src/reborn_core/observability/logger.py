@@ -66,7 +66,7 @@ def setup_logger(
 
     if use_json_logs:
         logger.add(
-            sys.stdout,
+            sys.stderr,
             level=target_level,
             serialize=True,
             enqueue=True,
@@ -95,7 +95,7 @@ def setup_logger(
     )
 
     logger.add(
-        sys.stdout,
+        sys.stderr,
         level=target_level,
         colorize=is_development,
         format=console_format,
