@@ -52,7 +52,7 @@
 ### P1-D：系统生产化与运维
 
 - [x] 独立 Worker 守护进程（SQLite 轮询，`uv run reborn worker`）；跨进程任务抢占与崩溃恢复已实现
-- [ ] 可选升级：分布式任务队列（Celery/Redis），当前 SQLite Worker 满足单机需求
+- [ ] 不采用 Celery/Redis：产品采用单家庭、单节点部署模型；后台任务继续使用 SQLite Worker。只有未来出现多机执行、横向扩容或多用户高并发需求时才重新评估。
 - [ ] 开放标准导出格式与数据治理手册
 - [ ] 至少每年执行一次恢复演练并留存记录
 
@@ -100,15 +100,15 @@
 
 ## 技术选型参考
 
-| 能力维度   | 当前方案                  | 未来候选                   |
-| ---------- | ------------------------- | -------------------------- |
-| 文本对话   | DeepSeek API + 本地 RAG   | 任意兼容 OpenAI 接口的 LLM |
-| 向量检索   | Qdrant（本地嵌入式）      | Qdrant（Server 模式）      |
-| 语义嵌入   | BGE-small-zh-v1.5（本地） | 更大参数量的本地嵌入模型   |
-| 精排       | BGE-reranker-base（本地） | BGE-reranker-v2 系列       |
-| 语音克隆   | 待接入                    | GPT-SoVITS                 |
-| 数字人驱动 | 待调研                    | SadTalker / MuseTalk       |
-| 任务队列   | SQLite 轮询 + 独立 Worker 进程 | Celery + Redis         |
+| 能力维度   | 当前方案                       | 未来候选                   |
+| ---------- | ------------------------------ | -------------------------- |
+| 文本对话   | DeepSeek API + 本地 RAG        | 任意兼容 OpenAI 接口的 LLM |
+| 向量检索   | Qdrant（本地嵌入式）           | Qdrant（Server 模式）      |
+| 语义嵌入   | BGE-small-zh-v1.5（本地）      | 更大参数量的本地嵌入模型   |
+| 精排       | BGE-reranker-base（本地）      | BGE-reranker-v2 系列       |
+| 语音克隆   | 待接入                         | GPT-SoVITS                 |
+| 数字人驱动 | 待调研                         | SadTalker / MuseTalk       |
+| 任务队列   | SQLite 轮询 + 独立 Worker 进程 | Celery + Redis             |
 
 ---
 
