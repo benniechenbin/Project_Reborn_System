@@ -19,6 +19,13 @@ updates:
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "torch"
+      - dependency-name: "torchvision"
+      - dependency-name: "torchaudio"
+      - dependency-name: "sentence-transformers"
+      - dependency-name: "transformers"
+      - dependency-name: "llvmlite"
     groups:
       python-dev-tools:
         patterns:
