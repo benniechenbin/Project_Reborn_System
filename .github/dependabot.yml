@@ -30,9 +30,9 @@ updates:
       python-dev-tools:
         patterns:
           - "mypy"
+          - "ruff"
           - "pytest"
           - "pytest-cov"
-          - "pre-commit"
         update-types:
           - "minor"
           - "patch"

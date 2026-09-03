@@ -35,14 +35,19 @@ repos:
   # -------------------------------------------------------------
   # Stage 3 — Semantic Auto Fix（语义级代码与文档自动修剪）
   # -------------------------------------------------------------
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.5
+  - repo: local
     hooks:
       - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check
         args: [--fix]
+        language: system
         types_or: [python, pyi]
 
       - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
         types_or: [python, pyi, jupyter, markdown]
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
