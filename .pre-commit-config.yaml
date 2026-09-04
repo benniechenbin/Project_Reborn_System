@@ -27,9 +27,9 @@ repos:
     hooks:
       - id: generate-env-example  # 2.1 安全地生成/更新 .env.example
         name: Check .env.example against Settings
-        entry: uv run --no-project python scripts/generate_env_example.py
+        entry: uv run --no-sync python scripts/generate_env_example.py
         language: system
-        always_run: true
+        files: ^(src/reborn_core/config/|\.env\.example|scripts/generate_env_example\.py)
         pass_filenames: false
 
   # -------------------------------------------------------------
@@ -48,7 +48,7 @@ repos:
         name: ruff format
         entry: uv run ruff format
         language: system
-        types_or: [python, pyi, jupyter, markdown]
+        types_or: [python, pyi]
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.23.2
@@ -78,11 +78,4 @@ repos:
         entry: uv run mypy
         language: system
         types_or: [python, pyi]
-        args: [
-          "--python-version=3.11",
-          "--ignore-missing-imports",
-          "--check-untyped-defs",
-          "--warn-unused-ignores",
-          "--warn-unreachable"
-        ]
-        files: ^src/
+        files: ^(src|scripts)/

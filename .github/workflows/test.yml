@@ -38,11 +38,14 @@ jobs:
       - run: uv run --no-sync python -m py_compile app.py
       - run: uv run --no-sync ruff check src tests scripts app.py
       - run: uv run --no-sync ruff format --check src tests scripts app.py
-      - run: uv run --no-sync mypy src scripts --ignore-missing-imports --check-untyped-defs --warn-unused-ignores --warn-unreachable
+      - run: uv run --no-sync mypy src scripts
+      - name: Markdown lint
+        run: npx --yes markdownlint-cli2
       - run: uv build
 
   tests:
     name: tests (${{ matrix.python-version }})
+    needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
