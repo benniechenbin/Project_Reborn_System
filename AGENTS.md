@@ -142,6 +142,7 @@ Project Reborn（数字生命引擎）的最终目标是一个数字陪伴系统
 - `uv` 用于依赖管理与虚拟环境管理。
 - `hatchling` 用于构建。
 - `pytest` 用于测试。
+- `pre-commit` 用于统一编排本地与 CI 代码治理检查。
 - `ruff` 用于格式化和代码风格检查。
 - `mypy` 用于静态类型检查。
 
@@ -187,6 +188,8 @@ Project Reborn（数字生命引擎）的最终目标是一个数字陪伴系统
 
 ```bash
 uv run pytest
+uv run pre-commit validate-config
+uv run pre-commit run --all-files --show-diff-on-failure
 uv run ruff check .
 uv run mypy .
 ```

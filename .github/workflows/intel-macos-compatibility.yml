@@ -1,0 +1,48 @@
+name: Intel macOS Compatibility
+
+on:
+  push:
+    branches: ["main", "master"]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/dependabot.yml"
+      - ".github/workflows/intel-macos-compatibility.yml"
+  pull_request:
+    branches: ["main", "master"]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/dependabot.yml"
+      - ".github/workflows/intel-macos-compatibility.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.11"
+      - run: uv lock --check
+      - run: uv sync --frozen
+      - name: Verify Intel ML stack imports
+        run: >-
+          uv run --no-sync python -c
+          "import llvmlite, platform, sentence_transformers, torch, torchaudio,
+          torchvision, transformers; modules = (torch, torchvision, torchaudio,
+          sentence_transformers, transformers, llvmlite);
+          print(f'platform={platform.system()} machine={platform.machine()}');
+          [print(f'{module.__name__}={module.__version__}') for module in modules]"

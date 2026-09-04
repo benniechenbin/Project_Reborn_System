@@ -1,9 +1,5 @@
 # .markdownlint-cli2.yaml
 
-globs:
-  - "*.md"
-  - "docs/**/*.md"
-
 ignores:
   - ".agents/**"
   - "**/node_modules/**"

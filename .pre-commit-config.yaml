@@ -12,7 +12,7 @@ repos:
       - id: check-json
       - id: check-toml
       - id: check-ast             # 1.4 Python 语法正确性检查
-      - id: debug-statements      # 1.5 拦截遗留的 breakpoint() / print
+      - id: debug-statements      # 1.5 拦截遗留的 debugger / breakpoint()
       - id: detect-private-key    # 1.6 拦截私钥泄漏
 
   - repo: https://github.com/gitleaks/gitleaks

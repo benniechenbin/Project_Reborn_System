@@ -19,28 +19,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           enable-cache: true
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.11"
       - name: Secret scan
-        uses: gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: uv lock --check
       - run: uv sync --frozen
-      - run: uv run --no-sync python scripts/generate_env_example.py --check
-      - run: uv run --no-sync python -m py_compile app.py
-      - run: uv run --no-sync ruff check src tests scripts app.py
-      - run: uv run --no-sync ruff format --check src tests scripts app.py
-      - run: uv run --no-sync mypy src scripts
-      - name: Markdown lint
-        run: npx --yes markdownlint-cli2
+      - name: Pre-commit quality checks
+        run: uv run --no-sync pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: gitleaks
       - run: uv build
 
   tests:
@@ -53,11 +50,11 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           enable-cache: true
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --frozen

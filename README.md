@@ -133,6 +133,14 @@ cd Project_Reborn_System
 uv sync --extra llm --extra rag --extra ui --extra voice
 ```
 
+开发者首次安装后，请启用仓库治理钩子：
+
+```bash
+uv run pre-commit install
+uv run pre-commit validate-config
+uv run pre-commit run --all-files --show-diff-on-failure
+```
+
 #### 3. 本地配置
 
 复制环境变量模板，并只填写密钥、路径、运行环境这类部署级配置：
