@@ -41,8 +41,8 @@ jobs:
       - name: Verify Intel ML stack imports
         run: >-
           uv run --no-sync python -c
-          "import llvmlite, platform, sentence_transformers, torch, torchaudio,
-          torchvision, transformers; modules = (torch, torchvision, torchaudio,
-          sentence_transformers, transformers, llvmlite);
+          "import llvmlite, numpy, pandas, platform, sentence_transformers, torch,
+          torchaudio, torchvision, transformers; modules = (torch, torchvision,
+          torchaudio, sentence_transformers, transformers, llvmlite, numpy, pandas);
           print(f'platform={platform.system()} machine={platform.machine()}');
           [print(f'{module.__name__}={module.__version__}') for module in modules]"
