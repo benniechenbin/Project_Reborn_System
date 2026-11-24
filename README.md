@@ -46,10 +46,12 @@ The engine utilizes a biologically inspired memory architecture:
 #### 2. Installation
 
 ```bash
-git clone [https://github.com/yourusername/Project_Reborn_System.git](https://github.com/yourusername/Project_Reborn_System.git)
+git clone https://github.com/benniechenbin/Project_Reborn_System.git
 cd Project_Reborn_System
-uv sync --extra llm --extra rag --extra ui --extra voice
+uv sync
 ```
+
+All runtime dependencies are declared directly in `pyproject.toml` (with platform markers automatically handling Intel macOS vs. Windows/Linux/Apple Silicon). Use `uv sync --no-dev` if you want to skip development tools.
 
 #### 3. Configuration
 
@@ -77,7 +79,7 @@ uv run reborn worker
 Launch the Central Console in a second terminal:
 
 ```bash
-uv run --extra ui --extra llm --extra rag --extra voice streamlit run app.py
+uv run streamlit run app.py
 ```
 
 The root `app.py` is a compatibility launcher. The Streamlit implementation lives in
@@ -128,10 +130,12 @@ standalone worker owns polling and the controlled thread pool.
 #### 2. 安装项目
 
 ```bash
-git clone [https://github.com/yourusername/Project_Reborn_System.git](https://github.com/yourusername/Project_Reborn_System.git)
+git clone https://github.com/benniechenbin/Project_Reborn_System.git
 cd Project_Reborn_System
-uv sync --extra llm --extra rag --extra ui --extra voice
+uv sync
 ```
+
+所有运行依赖均已统一声明在 `pyproject.toml` 中，并通过环境 marker 自动区分 Intel macOS 与 Windows/Linux/Apple Silicon 兼容版本；若仅需运行依赖（跳过开发工具），可执行 `uv sync --no-dev`。
 
 开发者首次安装后，请启用仓库治理钩子：
 
@@ -169,7 +173,7 @@ uv run reborn worker
 再在第二个终端启动 Streamlit 创造者交互面板：
 
 ```bash
-uv run --extra ui --extra llm --extra rag --extra voice streamlit run app.py
+uv run streamlit run app.py
 ```
 
 根目录的 `app.py` 仅作为兼容启动器；实际页面代码位于
@@ -187,7 +191,7 @@ python -m streamlit run app.py
 `src/reborn_core`，不会把 `src/` 自动加入任意 Conda 环境的模块搜索路径。新建 Conda 环境后需先安装项目：
 
 ```powershell
-python -m pip install -e ".[ui,llm,rag,voice]"
+python -m pip install -e .
 python -m streamlit run app.py
 ```
 
@@ -243,8 +247,6 @@ BACKUP_PREVIOUS_ENCRYPTION_KEY，然后在 Streamlit“治理”页面选择旧�
 长期维护边界、数据不变量和分阶段演进计划见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 ### 📂 项目目录结构
-
-Plaintext
 
 ```text
 Project_Reborn_System/
