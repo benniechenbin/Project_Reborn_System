@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11, <3.13"
 resolution-markers = [
     "python_full_version >= '3.12' and sys_platform == 'win32'",
@@ -618,7 +618,7 @@ wheels = [
 
 [[package]]
 name = "funasr"
-version = "1.4.27"
+version = "1.4.28"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "huggingface-hub", version = "0.36.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
@@ -654,9 +654,9 @@ dependencies = [
     { name = "umap-learn" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/4b/350461bc286b67b7786f85197a1e87f9ffbdbd678eec3da16accd189f910/funasr-1.4.27.tar.gz", hash = "sha256:a11075e1aa5591899ff5a2e2cae8d35d45e863f2d45423d3e059e61b93e87dd1", size = 1092484, upload-time = "2026-11-17T06:00:51.905Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/d9/ce32cb1861e06f9f2e486c51fd440d6f0f748877145a2f409c5dcc653116/funasr-1.4.28.tar.gz", hash = "sha256:1631cd4d2e1541a779753a26058431f0d291db804da3a23dfcbb67464e091de4", size = 1094400, upload-time = "2026-11-21T09:14:37.933Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b3/44/f7d836b0601068af92e3ecc53adb7ca9b93fc0350356f41dcabd2311e7e2/funasr-1.4.27-py3-none-any.whl", hash = "sha256:3341800380ed4e321a0103d25599c235a694a6ec4fbcb976d36ddbd948976fd7", size = 1016211, upload-time = "2026-11-17T06:00:48.439Z" },
+    { url = "https://files.pythonhosted.org/packages/22/48/4d854d49822930987024e851be229908cb0e196582e310419369078fe2ba/funasr-1.4.28-py3-none-any.whl", hash = "sha256:fce3969e68edd714a1d94bb4f186af845344f2aa176d4a9de6022fd0ff676823", size = 1016346, upload-time = "2026-11-21T09:14:36.204Z" },
 ]
 
 [[package]]
